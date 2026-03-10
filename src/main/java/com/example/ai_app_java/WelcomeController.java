@@ -26,7 +26,7 @@ public class WelcomeController {
     public Map<String, Object> greet(@RequestParam(defaultValue = "同学") String name) {
         Map<String, Object> response = new HashMap<>();
         response.put("status","success");
-        response.put("message","你好， "+name+" ! 欢迎重新开启java之旅。");
+        response.put("message","你好， "+name+" ! 这是一份来自mac问候！");
         response.put("tips","2026年了，记得多用JDK 21新特性哦！");
         return response;
     }
