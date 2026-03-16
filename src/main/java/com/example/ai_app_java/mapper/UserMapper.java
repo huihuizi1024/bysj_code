@@ -7,6 +7,6 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper // 加上这个注解，Spring Boot启动时就会把她注册为Bean
 public interface UserMapper extends BaseMapper<User> {
-    // 没错，这里面什么都不用写！
+    // 这里面什么都不用写！
     // BaseMapper<User> 已经帮你准备好了 insert, selectById, update 等方法。
 }

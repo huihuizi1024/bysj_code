@@ -2,6 +2,7 @@ package com.example.ai_app_java.controller;
 import com.example.ai_app_java.entity.UserRequest;
 import com.example.ai_app_java.service.UserService;
 import com.example.ai_app_java.entity.Result;
+import com.example.ai_app_java.service.impl.UserServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
@@ -10,6 +11,9 @@ import java.util.Map;
 
 @RestController//告诉Spring这是一个处理HTTP请求的控制器
 public class WelcomeController {
+    @Autowired
+    private UserServiceImpl userServiceImpl;
+
     /**
      * 简单的字符串返回接口
      * 访问地址：http://localhost:8080/welcome
@@ -40,4 +44,9 @@ public class WelcomeController {
         //2、直接返回， Spring 的 @RestController会自动把它变成JSON格式
         return finalResponse;
     }
+    @PostMapping("/login")
+    public Result login(@RequestBody UserRequest UserInfo) {
+        return userService.login(UserInfo);
+    }
+
 }
