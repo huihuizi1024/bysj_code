@@ -1,8 +1,9 @@
-package com.example.ai_app_java;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
+package com.example.ai_app_java.controller;
+import com.example.ai_app_java.entity.UserRequest;
+import com.example.ai_app_java.service.UserService;
+import com.example.ai_app_java.entity.Result;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,5 +30,14 @@ public class WelcomeController {
         response.put("message","你好， "+name+" ! 这是一份来自mac问候！");
         response.put("tips","2026年了，记得多用JDK 21新特性哦！");
         return response;
+    }
+    @Autowired//    自动注入UserService类
+    private UserService userService;
+    @PostMapping("/register")
+    public Result register(@RequestBody UserRequest UserInfo) {
+        //1、调用Service层，拿到封装好的最后Result对象
+        Result finalResponse = userService.register(UserInfo);
+        //2、直接返回， Spring 的 @RestController会自动把它变成JSON格式
+        return finalResponse;
     }
 }
