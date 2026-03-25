@@ -13,6 +13,7 @@ public class Result {
     private Object data;//携带的数据
     //添加success静态方法
     public static Result success(String msg, Object data) {
+
         return new Result(200, "success", msg, data);
     }
     //添加fail静态方法

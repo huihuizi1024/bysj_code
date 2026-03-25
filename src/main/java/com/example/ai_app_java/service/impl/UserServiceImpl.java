@@ -26,9 +26,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         if(user.getUsername()==null || user.getUsername().length()<=3){
             return new Result(400,"fail","注册失败： 用户名长度不能少于3位",null);
         }
-        if(user.getPassword().length()<6 || user.getPassword()==null){
+        if(user.getPassword()==null || user.getPassword().length()<6){
             return new Result(400,"fail","注册失败：密码长度过短，至少需要6位！",null);
         }
+        //用户名重复性检查
+        User existingUser = this.lambdaQuery()
+                .eq(User::getUsername,user.getUsername())
+                .one();
+        if(existingUser!=null){
+            //如果查到了，说明名字已经被占用了，返回错误信息
+            return Result.fail(400,"哎呀，这个名字已经有人用啦，换一个吧！");
+        }
+        try{
         //2、对象转换
         User userEntity = new User();
         userEntity.setUsername(user.getUsername());
@@ -43,11 +52,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         //调用ServiceImpl 提供的save方法
             boolean success = this.save(userEntity);
             if(success){
-                return new Result(200, "success",
-                        "用户 " + user.getUsername() + " 注册成功！", null);
+                return Result.success("注册成功！",null);
             }else {
                 return new Result(500,"error","数据库写入失败", null);
             }
+        }catch (Exception e){
+            return Result.fail(500,"系统异常： "+e.getMessage());
+        }
     }
     @Override
     public Result login(UserRequest user) {
