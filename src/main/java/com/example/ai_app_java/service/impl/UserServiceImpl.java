@@ -6,9 +6,12 @@ import com.example.ai_app_java.entity.User;
 import com.example.ai_app_java.mapper.UserMapper;
 import com.example.ai_app_java.entity.UserRequest;
 import com.example.ai_app_java.service.UserService;
+import com.example.ai_app_java.utils.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.mindrot.jbcrypt.BCrypt;//引入BCrypt 算法加密工具
 import org.springframework.stereotype.Service;
+import java.util.HashMap;
+import java.util.Map;
 
 import java.time.LocalDateTime;
 /*
@@ -18,6 +21,10 @@ import java.time.LocalDateTime;
  */
 @Service    //告诉Sping：我是业务层组件
 public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements UserService {
+
+    @Autowired
+    private JwtUtils jwtUtils;  //注入造票机
+
     @Override
     //注册逻辑
     public Result register(UserRequest user) {
@@ -60,6 +67,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
             return Result.fail(500,"系统异常： "+e.getMessage());
         }
     }
+
     @Override
     public Result login(UserRequest user) {
         //1.基础判空
@@ -74,16 +82,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         }
         //4.用BCrypt算法进行密码核对
         //原理：此时user.getPassword()是前端传来的明文，而dbUser.getPassword()是数据库里存的乱码
-        //此时不能用‘--’去比较，而是要用BCrypt.check()去处理
+        //此时不能用‘--’去比较，而是要用BCrypt.checkpw()去处理
         if(BCrypt.checkpw(user.getPassword(),dbUser.getPassword())){
             //5.脱敏处理（保护用户隐私-）
             //如登陆成功了，我们需要把用户信息返回前端，但是需要抹去敏感信息（如“密码“字段）
             // 这样前端的网络请求拦截器里，就看不到这个人的密码密文了。
             dbUser.setPassword(null);
-            return new Result(200,"success","登陆成功！欢迎回来："+dbUser.getUsername(),dbUser);
+            //签发JWT令牌
+            String token = jwtUtils.createToken(dbUser.getId(), dbUser.getUsername());
+            //把token和用户信息装进一个Map里返回给前端
+            Map<String,Object> responseData = new HashMap<>();
+            responseData.put("token",token);
+            responseData.put("userInfo",dbUser);
+            return new Result(200,"success","登陆成功！欢迎回来："+dbUser.getUsername(),responseData);
         }else{
             //密码比对失败
-            return new Result(400,"fail","登陆失败：用户名或密码错误s！",null);
+            return new Result(400,"fail","登陆失败：用户名或密码错误！",null);
         }
     }
 

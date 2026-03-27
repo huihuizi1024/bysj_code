@@ -35,7 +35,7 @@ public class JwtInterceptor implements HandlerInterceptor {
                 Long userId =  claims.get("userId",Long.class);
 
                 //把userId贴在这个请求的后背上并传给后面的 Controller
-                request.setAttribute("currentuserId",userId);
+                request.setAttribute("currentUserId",userId);
                 return true; //全部完成，放行！
             }
         }

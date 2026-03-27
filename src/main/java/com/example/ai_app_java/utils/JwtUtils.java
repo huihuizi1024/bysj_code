@@ -14,7 +14,7 @@ import java.util.stream.StreamSupport;
 public class JwtUtils {
     @Value("${jwt.secret}")
     private String secretString;
-    @Value("$jwt.expiration")
+    @Value("${jwt.expiration}")
     private Long expiration;
     /*
         根据配置的字符串生成安全的密钥对象

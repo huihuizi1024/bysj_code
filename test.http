@@ -15,5 +15,21 @@ Content-Type: application/json
   "password": "123456"
 }
 
+### 不带 Token 访问受保护接口
+POST http://localhost:8080/chat/send
+Content-Type: application/json
+
+{
+  "content": "你好，我是硬闯的！"
+}
+
+### 携带 Token 访问受保护接口
+POST http://localhost:8080/chat/send
+Content-Type: application/json
+Authorization:Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyX2F1dGgiLCJpYXQiOjE3NzQ0NTY2NjQsImV4cCI6MTc3NDU0MzA2NCwidXNlcklkIjoxLCJ1c2VybmFtZSI6Imh1aWh1aXppIn0.vYuoh6J1Ove5CoHuBvIf4CJUychwXwh9-4eVnbudfjQ
+
+{
+  "content": "你好，AI！我已经拿到通行证了！"
+}
 ###测试getHistoryByUserId方法
 GET http://localhost:8080/

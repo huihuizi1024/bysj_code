@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/chat")    //所有 /chat开头的请求都归这里管
@@ -26,6 +27,18 @@ public class ChatController {
     发送路由并获取回复（模拟）
     路由：路由：POST http://localhost:8080/chat/send
      */
-
+    @PostMapping("/send")
+    public Result sendMessage(
+            //1、接收前端传来的JSON数据{"content":"你好"}
+            @RequestBody Map<String, String> requestBody,
+            //2、直接拿到拦截器贴在请求后背上的ID
+            @RequestAttribute("currentUserId")long userId
+    ){
+            String content = requestBody.get("content");
+            //先写一个简单的模拟回复
+        String Reply = "VIP通道验证成功！你发送的内容是：【"+ content
+                +"】。系统已识别到你的专属用户ID是："+userId;
+        return Result.success("消息处理成功",Reply);
+    }
 
 }

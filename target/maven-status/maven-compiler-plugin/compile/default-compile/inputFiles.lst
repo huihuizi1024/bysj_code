@@ -1,12 +1,17 @@
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\AiAppJavaApplication.java
+C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\config\RestTemplateConfig.java
+C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\config\WebMvcConfig.java
+C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\controller\ChatController.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\controller\WelcomeController.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\entity\ChatMessage.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\entity\Result.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\entity\User.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\entity\UserRequest.java
+C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\interceptor\JwtInterceptor.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\mapper\ChatMessageMapper.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\mapper\UserMapper.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\service\ChatMessageService.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\service\impl\ChatMessageServiceImpl.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\service\impl\UserServiceImpl.java
 C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\service\UserService.java
+C:\Users\huihui\IdeaProjects\ai_app_java\src\main\java\com\example\ai_app_java\utils\JwtUtils.java
