@@ -23,12 +23,17 @@ public class JwtInterceptor implements HandlerInterceptor {
         }
         //2.从 HTTP 请求头中获取名叫 "Authorization" 的票据
         String token = request.getHeader("Authorization");
-
-        //3.检验是否有票，以及票的格式对不对（通常是“Bearer xxxxx”）
+        //如果Header里有就去掉前缀
         if(token !=null && token.startsWith("Bearer ")){
             token = token.substring(7); //截取掉“Bearer ”前缀，只留核心Token
-
-            //用验票机检验真伪
+        }else {
+            //如果header里没有，尝试从URL参数中获取（专为SSE流式请求准备）
+            //比如前端请求：/chat/stream?sessionId=1&token=eyJhb...
+            token = request.getParameter("token");
+        }
+        //3.检验是否有票，以及票的格式对不对（通常是“Bearer xxxxx”）
+        //用验票机检验真伪
+        if(token != null && !token.trim().isEmpty()){
             if(jwtUtils.validateToken(token)){
                 //验票通过，解析出这个人的ID
                 Claims claims = jwtUtils.parseToken(token);

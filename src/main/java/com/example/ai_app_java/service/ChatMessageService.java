@@ -6,5 +6,6 @@ import java.util.List;
 
 public interface ChatMessageService extends IService<ChatMessage> {
     //获取某个用户最近的10条聊天记录(用于给AI提供上下文记忆）
-    List<ChatMessage> getHistoryByUserId(Long userId);
+    List<ChatMessage> getHistoryBySessionId(Long sessionId);
+
 }

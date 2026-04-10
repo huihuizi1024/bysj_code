@@ -15,10 +15,10 @@ import java.time.LocalDateTime;
 public class ChatMessage {
     @TableId(type = IdType.AUTO)//标记主键并且自增
     private Long id;
-
     private Long userId;//谁在提问
     private String role;//角色：user（用户）或assistant(AI)
     private String content;//聊天的文本内容
     private LocalDateTime createTime;//发送时间
+    private Long sessionId;//所属会话id
 
 }
