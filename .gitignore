@@ -1,42 +1,104 @@
-### Java 基础过滤 ###
-*.class
+### ========================================== ###
+###        全局与系统环境屏蔽 (Global)           ###
+### ========================================== ###
+
+# Mac/Windows 系统生成的隐藏文件
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# 开发工具配置 (防止不同电脑和IDE之间产生路径冲突)
+.idea/
+.vscode/
+**/*.iml
+**/*.iws
+**/*.ipr
+*.sublime-workspace
+
+# 通用日志和临时文件
 *.log
+*.tmp
+*.bak
+*.swp
+
+
+### ========================================== ###
+###       1. Java 后端 (1_java_backend)        ###
+### ========================================== ###
+
+# 编译输出目录
+**/target/
+**/out/
+**/gen/
+*.class
+
+# 打包文件 (体积较大，不需要版本控制)
 *.jar
 *.war
 *.ear
 *.zip
 *.tar.gz
-*.rar
+
+# Java 虚拟机崩溃日志
 hs_err_pid*
 replay_pid*
 
-### Maven 特定过滤 ###
-target/          # 👈 最重要：绝对不要上传编译后的 target 目录
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-pom.xml.next
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-.mvn/wrapper/maven-wrapper.jar
 
-### IntelliJ IDEA 配置文件 (跨平台同步最容易冲突的地方) ###
-.idea/           # 👈 建议过滤：防止 Win/Mac 的窗口位置、本地路径配置冲突
-*.iml
-*.iws
-*.ipr
-out/
-gen/
+### ========================================== ###
+###       2. Vue 前端 (2_vue_frontend)         ###
+### ========================================== ###
 
-### Mac 系统特有文件 ###
-.DS_Store        # 👈 必加：Mac 系统会自动生成这个隐藏文件，发给 Win 会报错
-.AppleDouble
-.LSOverride
+# 依赖包目录 (必须屏蔽，否则仓库会直接卡死)
+**/node_modules/
 
-### Windows 系统特有文件 ###
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-.idea/material_theme_project_new.xml
+# 编译打包的最终产物
+**/dist/
+**/dist-ssr/
+
+# 本地环境变量 (防止 API Key、数据库密码等敏感信息泄露)
+**/.env.local
+**/.env.*.local
+
+# 包管理器错误日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+### ========================================== ###
+###      3. AI 引擎 (3_ai_engine / Python)     ###
+### ========================================== ###
+
+# Python 虚拟环境及编译缓存
+**/venv/
+**/.venv/
+**/env/
+**/__pycache__/
+**/*.py[cod]
+**/*.pyd
+
+# AI 模型权重与检查点 (体积巨大，坚决隔离，走物理传输)
+**/saves/
+**/*.ckpt
+**/*.safetensors
+**/*.pth
+**/*.pt
+**/*.bin
+**/*.onnx
+**/*.h5
+
+# LLaMA-Factory 缓存及数据集处理缓存
+**/llamaboard_cache/
+**/data/cache/
+
+# Jupyter Notebook 缓存
+**/.ipynb_checkpoints/
+**/.pytest_cache/
+
+# 忽略 AI 训练用的超大原始数据集 (保护前端 package.json 不被误伤)
+**/LLaMA-Factory/data/*.json
+**/PsyQA_train.json

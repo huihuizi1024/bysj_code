@@ -1,0 +1,5 @@
+model_name_or_path: Qwen/Qwen2.5-3B-Instruct
+adapter_name_or_path: saves/Qwen2.5-3B-Instruct/lora/train_2026-02-28-22-54-22_psy_model_v2
+template: qwen
+infer_backend: huggingface  # choices: [huggingface, vllm, sglang, ktransformers]
+trust_remote_code: true
