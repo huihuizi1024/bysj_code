@@ -1,12 +1,12 @@
 package com.example.ai_app_java.config;
 
 import com.example.ai_app_java.interceptor.JwtInterceptor;
+import com.example.ai_app_java.interceptor.RoleInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
 /**
  * Web 配置类：负责拦截器管理和全局跨域配置
  */
@@ -16,16 +16,26 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Autowired
     private JwtInterceptor jwtInterceptor;
 
+    @Autowired
+    private RoleInterceptor roleInterceptor;
     /**
      * 1. 配置拦截器（身份校验）
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        //JWT鉴权拦截器
         registry.addInterceptor(jwtInterceptor)
-        //保护区域：所有/chat开头的接口都必须检票
                 .addPathPatterns("/chat/**")
-        //放行区域：登录和注册接口谁都能进
-                .excludePathPatterns("/user/login","/user/register");
+                .addPathPatterns("/crisis/**")
+                .addPathPatterns("/emotion/**")
+                .addPathPatterns("/resource/**")
+                .addPathPatterns("/model/**")
+                .excludePathPatterns("/user/login", "/user/register");
+
+        //角色权限拦截器
+        registry.addInterceptor(roleInterceptor)
+                .addPathPatterns("/crisis/**")
+                .addPathPatterns("/resource/admin/**");
     }
     /**
      * 2. 配置全局跨域（解决浏览器安全拦截）

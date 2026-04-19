@@ -26,7 +26,7 @@ public class JwtUtils {
     /*
     1.生成token
      */
-    public String createToken(Long userId, String username) {
+    public String createToken(Long userId, String username,String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
         return Jwts.builder()
@@ -36,6 +36,7 @@ public class JwtUtils {
                 .setExpiration(expiryDate)  //过期时间
                 .claim("userId",userId)  //自定义载荷：存用户ID
                 .claim("username",username)//自定义载荷：存用户名
+                .claim("role",role)//自定义载荷：存用户角色
                 .signWith(getSecretKey(),SignatureAlgorithm.HS256)//签名算法
                 .compact();
     }

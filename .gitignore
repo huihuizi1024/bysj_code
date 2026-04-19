@@ -35,6 +35,10 @@ Desktop.ini
 **/gen/
 *.class
 
+#敏感配置文件（密钥/API Key/数据库密码）
+1_java_backend/secrets.properties
+
+
 # 打包文件 (体积较大，不需要版本控制)
 *.jar
 *.war
@@ -102,3 +106,4 @@ pnpm-debug.log*
 # 忽略 AI 训练用的超大原始数据集 (保护前端 package.json 不被误伤)
 **/LLaMA-Factory/data/*.json
 **/PsyQA_train.json
+/.cursor

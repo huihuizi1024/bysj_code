@@ -35,12 +35,15 @@ public class JwtInterceptor implements HandlerInterceptor {
         //用验票机检验真伪
         if(token != null && !token.trim().isEmpty()){
             if(jwtUtils.validateToken(token)){
-                //验票通过，解析出这个人的ID
+                //验票通过，解析出这个人的ID、name和role
                 Claims claims = jwtUtils.parseToken(token);
                 Long userId =  claims.get("userId",Long.class);
-
-                //把userId贴在这个请求的后背上并传给后面的 Controller
+                String username = claims.get("username",String.class);
+                String role = claims.get("role",String.class);
+                //把userId、username和role贴在这个请求的后背上并传给后面的 Controller
                 request.setAttribute("currentUserId",userId);
+                request.setAttribute("currentUsername",username);
+                request.setAttribute("currentRole",role);
                 return true; //全部完成，放行！
             }
         }

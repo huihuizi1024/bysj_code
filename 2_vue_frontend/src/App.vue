@@ -1,12 +1,13 @@
 <template>
-  <router-view />
+  <div id="app">
+    <router-view />
+  </div>
 </template>
 
+<script setup>
+// App.vue - 根组件
+</script>
+
 <style>
-/* 全局样式，消除默认间距 */
-html, body, #app {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-}
+@import './styles/global.css';
 </style>

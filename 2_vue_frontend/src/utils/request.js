@@ -1,13 +1,15 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
-// 1. 创建 axios 实例
+// 🆕 把 baseURL 提取为常量并导出，方便 SSE 等非 axios 场景引用
+export const BASE_URL = 'http://localhost:8080'
+
 const service = axios.create({
-    baseURL: 'http://localhost:8080', // 🔥 确保这里指向你的 Spring Boot 端口
-    timeout: 10000 
+    baseURL: BASE_URL,  // 🆕 引用常量
+    timeout: 10000
 })
 
-// 2. 请求拦截器
+// 请求拦截器
 service.interceptors.request.use(
     config => {
         const token = localStorage.getItem('token')
@@ -19,7 +21,7 @@ service.interceptors.request.use(
     error => Promise.reject(error)
 )
 
-// 3. 响应拦截器
+// 响应拦截器
 service.interceptors.response.use(
     response => {
         const res = response.data

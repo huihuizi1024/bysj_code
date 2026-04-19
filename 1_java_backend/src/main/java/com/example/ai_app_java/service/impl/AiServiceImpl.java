@@ -1,15 +1,12 @@
 package com.example.ai_app_java.service.impl;
 
+import com.example.ai_app_java.entity.AiModelConfig;
 import com.example.ai_app_java.entity.ChatMessage;
 import com.example.ai_app_java.entity.ChatSession;
-import com.example.ai_app_java.service.AiService;
-import com.example.ai_app_java.service.ChatMessageService;
-import com.example.ai_app_java.service.ChatSessionService;
+import com.example.ai_app_java.service.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.tomcat.util.http.parser.HttpParser;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -39,20 +36,64 @@ public class AiServiceImpl implements AiService {
     //为了自动总结标题并保存
     @Autowired
     private ChatSessionService chatSessionService;
+    //为了分析用户情绪和检测危机
+    @Autowired
+    private EmotionAnalysisService emotionAnalysisService;
+    //为了检测危机
+    @Autowired
+    private CrisisDetectionService crisisDetectionService;
     //=======================================
-    //从application.properties读取DeepSeek的配置
+    //从secrets.properties读取DeepSeek的配置
     //=======================================
-    @Value("${ai.api.url}")
-    private String apiUrl;
-    @Value("${ai.api.key}")
-    private String apiKey;
-    @Value("${ai.api.model}")
-    private String apiModel;
+    @Autowired
+    private AiModelConfigService aiModelConfigService;
+    //为了保存用户模型偏好
+    @Autowired
+    private UserModelPreferenceService userModelPreferenceService;
+    //=======================================
+    //从Environment中读取配置
+    //=======================================
+    @Autowired
+    private org.springframework.core.env.Environment environment;
+    // 内部类：封装单个模型的API配置
+    private static class ModelApiConfig {
+        String url;
+        String apiKey;
+        String modelName;
+
+        ModelApiConfig(String url, String apiKey, String modelName) {
+            this.url = url;
+            this.apiKey = apiKey;
+            this.modelName = modelName;
+        }
+    }
+    /**
+     * 根据模型代码，从数据库配置+secrets.properties动态获取API配置
+     */
+    private ModelApiConfig getModelConfig(String modelCode) {
+        AiModelConfig config = aiModelConfigService.getByCode(modelCode);
+        if (config == null) {
+            throw new RuntimeException("未找到模型配置: " + modelCode);
+        }
+        String apiKey = getSecretKey(config.getApiKeyAlias());
+        return new ModelApiConfig(config.getApiUrl(), apiKey, config.getModelName());
+    }
+
+    /**
+     * 从secrets.properties中读取对应的API Key
+     * 使用Spring的Environment来动态读取
+     */
+    private String getSecretKey(String keyAlias) {
+        if (keyAlias == null || keyAlias.isBlank()) {
+            return "";
+        }
+        return environment.getProperty(keyAlias, "");
+    }
     // ==========================================
     // 1. 同步调用接口
     // ==========================================
     @Override
-    public String getAiResponse(Long userId, String content){
+    public String getAiResponse(Long userId, String content,String modelCode){
         System.out.println("【AI服务】 准备调用大模型，用户ID："+userId+
                 "， 内容"+content);
 
@@ -60,12 +101,12 @@ public class AiServiceImpl implements AiService {
             //1、设置请求头(相当于将apikey给亮出来
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(apiKey);
+            headers.setBearerAuth(getModelConfig(modelCode).apiKey);
             //2、组装请求体(严格遵守DeepSeek/OpenAI的JSON格式)
             Map<String, Object> requestBody = new HashMap<>();
             //未来动态切换伏笔
-            //目前用配置文件中写死的apiModel，以后做动态切换时直接改成传过来的模型名字
-            requestBody.put("model",apiModel);
+            //根据模型代码获取模型名称
+            requestBody.put("model",getModelConfig(modelCode).modelName);
             //组装对话消息列表
             List<Map<String, String>> messages = new ArrayList<>();
             //系统提示词Prompt
@@ -84,8 +125,8 @@ public class AiServiceImpl implements AiService {
             HttpEntity<Map<String,Object>> entity = new HttpEntity<>(requestBody,headers);
 
             //3、发送HTTP POST请求给AI服务器
-            System.out.println("【AI服务】正在等待"+apiModel+"回复...");
-            ResponseEntity<String> response = restTemplate.postForEntity(apiUrl, entity, String.class);
+            System.out.println("【AI服务】正在等待"+getModelConfig(modelCode).modelName+"回复...");
+            ResponseEntity<String> response = restTemplate.postForEntity(getModelConfig(modelCode).url, entity, String.class);
 
             //4、拆开DeepSeek的回信(JSON格式)
             ObjectMapper mapper = new ObjectMapper();
@@ -93,7 +134,7 @@ public class AiServiceImpl implements AiService {
 
             //DeepSeek的回复藏在choices ->[0] ->message ->content里
             String aiReply = root.path("choices").get(0).path("message").path("content").asText();
-            System.out.println("【AI】服务"+apiModel+"回复成功！");
+            System.out.println("【AI】服务"+getModelConfig(modelCode).modelName+"回复成功！");
             return aiReply;
         }catch (Exception e){
             System.out.println("【AI服务】调用大模型失败"+e.getMessage());
@@ -107,7 +148,7 @@ public class AiServiceImpl implements AiService {
     // 2. 调用大模型的流式打字机接口
     // ==========================================
     @Override
-    public SseEmitter streamChat(Long userId, Long sessionId, String content){
+    public SseEmitter streamChat(Long userId, Long sessionId, String content,String modelCode){
         //1、创建流式发送器，超时时间为120s
         SseEmitter emitter = new SseEmitter(120000L);
 
@@ -118,10 +159,16 @@ public class AiServiceImpl implements AiService {
         userMsg.setUserId(userId);
         userMsg.setRole("user");
         userMsg.setCreateTime(LocalDateTime.now());
-        chatMessageService.save(userMsg);
+        //保存用户消息并获取消息ID
+       Long userMsgId = chatMessageService.saveAndGetId(userMsg);
+        //异步分析用户情绪（不阻塞AI回复）
+        new Thread(() -> {
+            emotionAnalysisService.analyzeEmotion(userId, sessionId, userMsgId, content,modelCode);
+            crisisDetectionService.checkCrisis(userId, sessionId, userMsgId, content);
+        }).start();
         //3、准备发给大模型的JSON数据
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model",apiModel);
+        requestBody.put("model",getModelConfig(modelCode).modelName);
         requestBody.put("stream",true);//告知大模型用流式输出回复
 
         List<Map<String, String>> messages = new ArrayList<>();
@@ -157,9 +204,9 @@ public class AiServiceImpl implements AiService {
                 String jsonPayload = mapper.writeValueAsString(requestBody);
                 //使用Java原生的HttpClient构造请求
                 HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(apiUrl))
+                        .uri(URI.create(getModelConfig(modelCode).url))
                         .header("Content-Type","application/json")
-                        .header("Authorization","Bearer "+apiKey)
+                        .header("Authorization","Bearer "+getModelConfig(modelCode).apiKey)
                         .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
                         .build();
 
@@ -243,7 +290,8 @@ public class AiServiceImpl implements AiService {
                 
                 // 复用我们写好的同步请求大模型方法
                 // 这里可以用 userId 传 0 或者 session 里面的 userId
-                String generatedTitle = getAiResponse(session.getUserId(), prompt);
+                String modelCode = userModelPreferenceService.getUserModelCode(session.getUserId());
+                String generatedTitle = getAiResponse(session.getUserId(), prompt,modelCode);
                 
                 // 去除可能携带的多余引号或空格
                 generatedTitle = generatedTitle.replace("\"", "").replace("'", "").trim();
@@ -261,5 +309,49 @@ public class AiServiceImpl implements AiService {
                 System.out.println("【AI服务】自动总结标题失败：" + e.getMessage());
             }
         }).start();
+    }
+    //=================================================
+    // 3. 使用AI进行情绪分析
+    //============================================
+    @Override
+    public String analyzeEmotion(String content,String modelCode) {
+        String apiUrl = getModelConfig(modelCode).url;
+        String apiKey = getModelConfig(modelCode).apiKey;
+        String apiModel = getModelConfig(modelCode).modelName;
+        try{
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            Map<String,Object> requestBody = new HashMap<>();
+            requestBody.put("model",apiModel);
+            
+            List<Map<String,String>> messages = new ArrayList<>();
+            //系统提示此：要求AI返回结构化的JSON分析结果
+            String systemPrompt = """
+           你是一个专业的情绪分析助手。请分析用户输入的文本，判断其情绪状态。
+        你必须严格按照以下JSON格式返回，不要有任何额外内容：
+        {
+            "emotionType": "情绪类型，取值为 positive/negative/neutral/anxiety/depression/anger 之一",
+            "emotionScore": 0.0到1.0之间的数值，0.0代表极度负面，1.0代表极度积极，
+            "keywords": "识别出的情绪关键词，用逗号分隔"
+        }
+            """;
+            messages.add(Map.of("role","system","content",systemPrompt));
+            messages.add(Map.of("role","user","content",content));
+            requestBody.put("messages",messages);
+            HttpEntity<Map<String,Object>> entity = new HttpEntity<>(requestBody,headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(apiUrl, entity, String.class);
+
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(response.getBody());
+            String aiReply = root.path("choices").get(0).path("message").path("content").asText();
+            
+            return aiReply;
+             }catch(Exception e){
+                System.out.println("【AI服务】调用失败："+e.getMessage());
+                //兜底：返回中性情绪
+                return "{\"emotionType\":\"neutral\",\"emotionScore\":0.5,\"keywords\":\"无\"}";
+            }
     }
 }

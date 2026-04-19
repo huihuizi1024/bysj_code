@@ -18,4 +18,5 @@ public class User {
     private String password;
     //驼峰命名法。MyBatis 会自动把 createTime 翻译成数据库里的 create_time 列
     private LocalDateTime createTime;
+    private String role;//角色字段，USER=普通用户，ADMIN=管理员
 }

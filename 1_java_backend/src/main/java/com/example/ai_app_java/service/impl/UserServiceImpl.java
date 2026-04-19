@@ -49,6 +49,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         User userEntity = new User();
         userEntity.setUsername(user.getUsername());
         userEntity.setPassword(user.getPassword());
+        userEntity.setRole("USER");
         userEntity.setCreateTime(LocalDateTime.now());
 
         //3、对象落库并且实现数据库持久化，用BCrypt算法明文密码加密成乱码
@@ -89,7 +90,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
             // 这样前端的网络请求拦截器里，就看不到这个人的密码密文了。
             dbUser.setPassword(null);
             //签发JWT令牌
-            String token = jwtUtils.createToken(dbUser.getId(), dbUser.getUsername());
+            String token = jwtUtils.createToken(dbUser.getId(), dbUser.getUsername(), dbUser.getRole());
             //把token和用户信息装进一个Map里返回给前端
             Map<String,Object> responseData = new HashMap<>();
             responseData.put("token",token);

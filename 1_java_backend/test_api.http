@@ -1,0 +1,198 @@
+### ================================================
+### 心理支持聊天机器人系统 - 后端接口测试脚本
+### 依赖：后端运行在 http://localhost:8080
+### 使用方式：用 REST Client 插件（VS Code / IntelliJ）按块运行
+### ================================================
+
+### ================== 公开接口 ==================
+
+### 1. 健康检查
+GET http://localhost:8080/welcome
+
+### 2. 问候接口
+GET http://localhost:8080/greet?name=Student
+
+### 3. 用户注册
+### @name register
+POST http://localhost:8080/user/register
+Content-Type: application/json
+
+{
+  "username": "test_user",
+  "password": "test123456"
+}
+
+### 4. 用户登录（普通用户）
+### @name login_user
+POST http://localhost:8080/user/login
+Content-Type: application/json
+
+{
+  "username": "test_user",
+  "password": "test123456"
+}
+
+### 5. 管理员登录
+### @name login_admin
+POST http://localhost:8080/user/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+### ================== 用户接口（需 Bearer Token） ==================
+### 提示：在 REST Client 中定义环境变量，或将下面 {{token}} 替换为登录接口返回的 token
+
+### 6. 创建会话
+### @name create_session
+POST http://localhost:8080/chat/session/create
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "测试心理对话"
+}
+
+### 7. 获取会话列表
+GET http://localhost:8080/chat/session/list
+Authorization: Bearer {{token}}
+
+### 8. 查询历史记录（sessionId 替换为实际值）
+GET http://localhost:8080/chat/history?sessionId=1
+Authorization: Bearer {{token}}
+
+### 9. 流式对话 SSE（用 curl 测试，sessionId 替换为实际值）
+### curl -N -H "Authorization: Bearer {{token}}" \
+###   "http://localhost:8080/chat/stream?sessionId=1&content=我最近心情很低落&modelCode=deepseek"
+
+### 10. 获取会话情绪历史（sessionId 替换为实际值）
+GET http://localhost:8080/emotion/session/1
+Authorization: Bearer {{token}}
+
+### 11. 获取情绪变化趋势（最近 7 天）
+GET http://localhost:8080/emotion/trend?days=7
+Authorization: Bearer {{token}}
+
+### 12. 获取会话最新情绪状态（sessionId 替换为实际值）
+GET http://localhost:8080/emotion/latest/1
+Authorization: Bearer {{token}}
+
+### 13. 根据情绪推荐资源
+GET http://localhost:8080/resource/recommend?emotionType=depression&emotionScore=0.3
+Authorization: Bearer {{token}}
+
+### 14. 获取所有资源列表
+GET http://localhost:8080/resource/all
+Authorization: Bearer {{token}}
+
+### 15. 获取资源详情（id 替换为实际值）
+GET http://localhost:8080/resource/detail/1
+Authorization: Bearer {{token}}
+
+### 16. 获取我的推荐记录
+GET http://localhost:8080/resource/my/recommendations
+Authorization: Bearer {{token}}
+
+### 17. 获取可选模型列表
+GET http://localhost:8080/model/list
+Authorization: Bearer {{token}}
+
+### 18. 获取当前使用模型
+GET http://localhost:8080/model/current
+Authorization: Bearer {{token}}
+
+### 19. 切换模型（modelCode 替换为实际值，如 deepseek / qwen / kimi）
+POST http://localhost:8080/model/select
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "modelCode": "deepseek"
+}
+
+### 20. 获取我的危机预警列表
+GET http://localhost:8080/crisis/user/alerts
+Authorization: Bearer {{token}}
+
+### ================== 管理员接口（需 ADMIN 角色） ==================
+### 提示：将 {{admin_token}} 替换为管理员登录返回的 token
+
+### 21. 获取所有待处理危机预警
+GET http://localhost:8080/crisis/pending
+Authorization: Bearer {{admin_token}}
+
+### 22. 处理危机预警（alertId 替换为实际值）
+POST http://localhost:8080/crisis/handle/1
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{
+  "handlerNotes": "已电话联系用户，情况稳定"
+}
+
+### 23. 管理员分页获取资源列表
+GET http://localhost:8080/resource/admin/list?category=crisis&pageNum=1&pageSize=10
+Authorization: Bearer {{admin_token}}
+
+### 24. 管理员新增资源
+POST http://localhost:8080/resource/admin/add
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{
+  "title": "心理援助热线",
+  "content": "全国24小时心理援助热线：400-161-9995",
+  "category": "hotline",
+  "tags": "危机,热线,紧急",
+  "enabled": 1
+}
+
+### 25. 管理员更新资源（id 替换为实际值）
+PUT http://localhost:8080/resource/admin/update/1
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{
+  "id": 1,
+  "title": "心理援助热线（更新）",
+  "content": "更新后的内容",
+  "category": "hotline",
+  "tags": "危机,热线",
+  "enabled": 1
+}
+
+### 26. 管理员启用/禁用资源（id 替换为实际值）
+PUT http://localhost:8080/resource/admin/toggle/1
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{
+  "enabled": 0
+}
+
+### 27. 管理员删除资源（id 替换为实际值）
+DELETE http://localhost:8080/resource/admin/delete/1
+Authorization: Bearer {{admin_token}}
+
+### 28. 管理员查看所有推荐记录
+GET http://localhost:8080/resource/admin/recommendations
+Authorization: Bearer {{admin_token}}
+
+### ================== 错误场景测试 ==================
+
+### 29. 未登录访问需鉴权接口 → 期望返回 401
+GET http://localhost:8080/chat/session/list
+
+### 30. 普通用户访问管理员接口 → 期望返回 403
+GET http://localhost:8080/crisis/pending
+Authorization: Bearer {{token}}
+
+### 31. 查询不存在的会话历史 → 期望返回 403 或空列表
+GET http://localhost:8080/chat/history?sessionId=999999
+Authorization: Bearer {{token}}
+
+### 32. 获取不存在的资源详情 → 期望返回 404
+GET http://localhost:8080/resource/detail/999999
+Authorization: Bearer {{token}}

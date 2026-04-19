@@ -1,5 +1,7 @@
 package com.example.ai_app_java.service;
 
+//AI服务接口
+
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public interface AiService {
     /*
@@ -9,7 +11,7 @@ public interface AiService {
     @return AI的文本回复
      */
 
-    String getAiResponse(Long userId, String content);
+    String getAiResponse(Long userId, String content,String modelCode);
     /*
     获取AI大模型的流式回复（打字机效果）
     @param useerId 当前用户的ID
@@ -17,5 +19,11 @@ public interface AiService {
     @param content 用户输入的聊天内容
     @return SseEmitter 流式发送器
      */
-    SseEmitter streamChat(Long userId, Long sessionId, String content);
+    SseEmitter streamChat(Long userId, Long sessionId, String content,String modelCode);
+    /**
+     * 使用AI进行情绪分析
+     * @param content 用户输入的聊天内容
+     * @return JSON格式的分析结果，包含emotionType、emotionScore、keywords
+     */
+    String analyzeEmotion(String content,String modelCode);
 }

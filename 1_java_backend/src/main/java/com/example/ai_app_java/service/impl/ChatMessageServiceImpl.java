@@ -24,4 +24,9 @@ public class ChatMessageServiceImpl
         return this.list(wrapper);
     }
 
+//保存消息并返回自增主键ID
+public Long saveAndGetId(ChatMessage message){
+    this.save(message);//MyBatis-Plus提供的保存方法，保存后message对象会自动回填生成的id
+    return message.getId();//返回自增主键ID
+}
 }
