@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { getCurrentModel } from '@/api/model'
 
 export const useAppStore = defineStore('app', () => {
   // 抽屉状态
@@ -8,9 +9,14 @@ export const useAppStore = defineStore('app', () => {
 
   // 弹窗状态
   const modelDialogVisible = ref(false)
+  const crisisAlertVisible = ref(false)
+  const currentCrisisAlert = ref(null)
 
   // 当前会话 ID
   const currentSessionId = ref(null)
+
+  // 当前选中的 AI 模型
+  const currentModel = ref({ code: '', name: '' })
 
   // 当前情绪状态（用于资源推荐）
   const currentEmotion = ref({
@@ -27,6 +33,10 @@ export const useAppStore = defineStore('app', () => {
   // 打开/关闭弹窗
   const openModelDialog = () => { modelDialogVisible.value = true }
   const closeModelDialog = () => { modelDialogVisible.value = false }
+  const openCrisisAlert = (alertData) => {
+    currentCrisisAlert.value = alertData
+    crisisAlertVisible.value = true
+  }
 
   // 更新当前会话
   const setCurrentSession = (sessionId) => {
@@ -38,11 +48,29 @@ export const useAppStore = defineStore('app', () => {
     currentEmotion.value = { type, score }
   }
 
+  // 加载当前选中的 AI 模型
+  const loadCurrentModel = async () => {
+    try {
+      const res = await getCurrentModel()
+      if (res.data?.code) {
+        currentModel.value = {
+          code: res.data.code,
+          name: res.data.name || res.data.code
+        }
+      }
+    } catch (err) {
+      console.warn('加载当前模型失败', err)
+    }
+  }
+
   return {
     emotionDrawerVisible,
     resourceDrawerVisible,
     modelDialogVisible,
+    crisisAlertVisible,
+    currentCrisisAlert,
     currentSessionId,
+    currentModel,
     currentEmotion,
     openEmotionDrawer,
     closeEmotionDrawer,
@@ -50,7 +78,9 @@ export const useAppStore = defineStore('app', () => {
     closeResourceDrawer,
     openModelDialog,
     closeModelDialog,
+    openCrisisAlert,
     setCurrentSession,
-    setCurrentEmotion
+    setCurrentEmotion,
+    loadCurrentModel
   }
 })

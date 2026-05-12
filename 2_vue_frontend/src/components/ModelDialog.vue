@@ -80,6 +80,7 @@ const selectModel = async (model) => {
   try {
     await selectModelApi(model.code)
     currentCode.value = model.code
+    appStore.currentModel = { code: model.code, name: model.name }
     ElMessage.success(`已切换到 ${model.name}`)
     appStore.modelDialogVisible = false
   } catch (err) {

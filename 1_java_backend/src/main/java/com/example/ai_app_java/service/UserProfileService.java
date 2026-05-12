@@ -23,4 +23,11 @@ public interface UserProfileService {
      */
     void analyzeAndUpdateProfile(Long userId);
 
+    /**
+     * 动态画像修正算法（评估-干预闭环）
+     * 综合情绪记录、打卡活跃度、认知投票得分，动态更新用户画像
+     * @param userId 用户ID
+     */
+    void dynamicProfileCorrection(Long userId);
+
 }

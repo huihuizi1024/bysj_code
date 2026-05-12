@@ -15,7 +15,5 @@ export function getChatHistory(sessionId) {
   return request.get(`/chat/history?sessionId=${sessionId}`)
 }
 
-// 发送消息（同步版本，返回完整响应）
-export function sendMessage(data) {
-  return request.post('/chat/send', data)
-}
+// 注意：发送消息统一使用 SSE 流式接口 streamChat（GET /chat/stream）
+// 旧的同步 POST /chat/send 接口已废弃

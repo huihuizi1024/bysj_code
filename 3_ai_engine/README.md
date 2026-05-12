@@ -1,6 +1,6 @@
 # 心理支持对话系统 - AI 引擎
 
-基于 [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) 的 AI 大模型微调与推理引擎。支持本地模型部署、LoRA 微调、多模态对话等功能。本模块可与后端集成，提供心理支持对话的智能回复生成。
+> 基于 [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) 的 AI 大模型微调与推理引擎。支持本地模型部署、LoRA 微调、多模态对话等功能。本模块可与后端集成，提供心理支持对话的智能回复生成。
 
 ## 项目简介
 
@@ -131,6 +131,33 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 ### 部署
 
 训练完成后，将 LoRA 权重合并到基础模型或直接加载 LoRA 进行推理。
+
+### LoRA 微调示例（基于项目内置配置）
+
+项目已提供开箱即用的微调配置 `train_psy_lora.yaml`，修改数据路径后即可启动训练：
+
+```bash
+cd LLaMA-Factory
+# 下载基础模型（如 Qwen2-7B）到本地目录
+# 修改 train_psy_lora.yaml 中的 dataset 为你的心理对话数据集路径
+llamafactory-cli train train_psy_lora.yaml
+```
+
+### 模型评估
+
+```bash
+# 启动 API 服务后，通过 OpenAI 兼容接口调用评估
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "your-finetuned-model",
+    "messages": [
+      {"role": "system", "content": "你是一个温暖的心理支持对话AI。"},
+      {"role": "user", "content": "我最近感觉压力很大，睡不着觉。"}
+    ],
+    "stream": false
+  }'
+```
 
 ## 目录结构
 

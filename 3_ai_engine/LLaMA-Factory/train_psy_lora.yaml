@@ -1,0 +1,48 @@
+### model
+# 服务器本地路径（下载后填写）：
+# model_name_or_path: /home/lgao/hu/LLaMA-Factory/Qwen25-7B-Instruct
+model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+trust_remote_code: true
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.05
+lora_target: all
+
+### dataset
+dataset: psy_final_pure
+dataset_dir: data
+template: qwen2
+cutoff_len: 2048
+max_samples: 100000
+preprocessing_num_workers: 8
+dataloader_num_workers: 4
+
+### output
+output_dir: /home/lgao/hu/LLaMA-Factory/saves/Qwen25-7B-Psy-LoRA
+logging_steps: 10
+save_steps: 500
+plot_loss: true
+overwrite_output_dir: true
+save_only_model: false
+report_to: none
+
+### train  (L40S 46GB · Qwen2.5-7B · bf16 · LoRA rank=8)
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 8
+learning_rate: 1.0e-4
+num_train_epochs: 3.0
+lr_scheduler_type: cosine
+warmup_steps: 1280
+bf16: true
+ddp_timeout: 180000000
+max_grad_norm: 1.0
+
+### eval  (可选项，服务器资源够可取消注释启用)
+#eval_strategy: steps
+#eval_steps: 500
+#per_device_eval_batch_size: 2

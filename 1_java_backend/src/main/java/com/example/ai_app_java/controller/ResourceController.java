@@ -79,7 +79,7 @@ public class ResourceController {
     public Result getMyRecommendations(
         @RequestAttribute("currentUserId") Long userId,
         @RequestAttribute("currentRole") String role){
-        List<?> records = resourceService.getUserRecommendations(userId);
+        List<ResourceRecommendation> records = resourceService.getUserRecommendations(userId);
         return Result.success("获取推荐记录成功",records);
         }
     //===============管理员接口：需管理员权限(ADMIN角色)=============
@@ -160,7 +160,7 @@ public class ResourceController {
         @RequestParam(required = false) Double emotionScore,
         @RequestAttribute("currentUserId") Long userId,
         @RequestAttribute("currentRole") String role){
-        List<?> records = resourceService.getRecommendations(emotionType,emotionScore);
+        List<ResourceRecommendation> records = resourceService.getRecommendations(emotionType,emotionScore);
         return Result.success("获取推荐记录成功",records);
     }
     /**
@@ -171,10 +171,14 @@ public class ResourceController {
     @RequireRole({"ADMIN"})
     public Result toggleResource(
         @PathVariable Long id,
-        @RequestBody Map<String,Boolean> body,
+        @RequestBody Map<String,Integer> body,
         @RequestAttribute("currentUserId") Long userId,
         @RequestAttribute("currentRole") String role){
-        boolean success = resourceService.toggleResource(id,body.get("enabled"));
+        Integer enabled = body.get("enabled");
+        if (enabled == null) {
+            return Result.fail(400, "缺少 enabled 参数");
+        }
+        boolean success = resourceService.toggleResource(id, enabled == 1);
         if(!success){
             return Result.fail(500,"启用/禁用资源失败");
         }

@@ -26,4 +26,7 @@ public class ResourceRecommendation {
     private Double emotionScore;//推荐时的情绪得分
     @TableField("recommended_at")
     private LocalDateTime recommendedAt;//推荐时间
+    //联表查询时注入的用户名（不映射数据库）
+    @TableField(exist = false)
+    private String username;
 }

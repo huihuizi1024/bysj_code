@@ -68,8 +68,8 @@ public class ChatController {
         if (session == null || !session.getUserId().equals(userId)) {
             return Result.fail(403, "无权访问此会话");
         }
-        //调用 Service 中的方法
-        List<ChatMessage> history = chatMessageService.getHistoryBySessionId(sessionId);
+        //调用 Service 中的方法（按时间正序，给前端展示用）
+        List<ChatMessage> history = chatMessageService.getHistoryAsc(sessionId);
         return Result.success("查询历史记录成功",history);
     }
 

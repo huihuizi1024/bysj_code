@@ -1,11 +1,12 @@
 <template>
   <div id="app">
     <router-view />
+    <ModelDialog />
   </div>
 </template>
 
 <script setup>
-// App.vue - 根组件
+import ModelDialog from './components/ModelDialog.vue'
 </script>
 
 <style>

@@ -1,0 +1,303 @@
+### ================================================
+### 情绪分析全流程可视化测试脚本
+### 依赖：后端运行在 http://localhost:8080
+### 使用方式：用 REST Client 插件（VS Code / IntelliJ）按块运行
+###
+### 情绪分析流程：
+###   用户输入 → 情绪分析 → 意图重构 → 角色确定 → AI响应 → 资源推荐
+###
+### 使用说明：
+###   1. 先运行「Step 0: 环境初始化」获取 token
+###   2. 按顺序运行各 Step，每个 Step 可独立运行
+###   3. {{token}} 会被 REST Client 记住（需设置环境变量）
+###   4. 带 [VISUAL] 标记的接口会返回可视化数据
+### ================================================
+
+### ================================================
+### Step 0: 环境初始化（必须先运行）
+### ================================================
+
+### 0.1 健康检查
+GET http://localhost:8080/welcome
+
+### 0.2 登录获取 Token
+### @name login_for_emotion
+POST http://localhost:8080/user/login
+Content-Type: application/json
+
+{
+  "username": "test_user",
+  "password": "test123456"
+}
+
+### 0.3 如无账号先注册
+POST http://localhost:8080/user/register
+Content-Type: application/json
+
+{
+  "username": "test_user",
+  "password": "test123456"
+}
+
+
+### ================================================
+### Step 1: 情绪分析核心流程（核心测试）
+### ================================================
+
+### 1.1 创建测试会话
+### @name create_emotion_session
+POST http://localhost:8080/chat/session/create
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "情绪分析测试对话"
+}
+
+### 1.2 查看支持的意图分类 [VISUAL]
+### 查看系统支持的所有心理意图分类及其疗法维度
+GET http://localhost:8080/intent/list
+Authorization: Bearer {{token}}
+
+### 1.3 查看支持的治疗角色 [VISUAL]
+### 查看系统支持的 AI 治疗角色（共情者/支持者/苏格拉底式提问者等）
+GET http://localhost:8080/intent/roles
+Authorization: Bearer {{token}}
+
+
+### ================================================
+### Step 2: 单步情绪分析测试（分步验证）
+### ================================================
+
+### 2.1 【负面情绪】意图重构测试 [VISUAL]
+### 输入：我最近压力很大，晚上睡不着，感觉生活没有意义
+POST http://localhost:8080/intent/reconstruct
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "userInput": "我最近压力很大，晚上睡不着，感觉生活没有意义",
+  "emotionType": "negative",
+  "emotionScore": 0.3
+}
+
+### 2.2 【焦虑情绪】意图重构测试 [VISUAL]
+### 输入：我一想到明天的事情就紧张，手心出汗
+POST http://localhost:8080/intent/reconstruct
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "userInput": "我一想到明天的事情就紧张，手心出汗",
+  "emotionType": "anxiety",
+  "emotionScore": 0.35
+}
+
+### 2.3 【积极情绪】意图重构测试 [VISUAL]
+### 输入：今天和朋友聊天很开心，感觉心情舒畅
+POST http://localhost:8080/intent/reconstruct
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "userInput": "今天和朋友聊天很开心，感觉心情舒畅",
+  "emotionType": "positive",
+  "emotionScore": 0.8
+}
+
+### 2.4 【中性情绪】意图重构测试 [VISUAL]
+### 输入：想了解一下正念冥想是什么
+POST http://localhost:8080/intent/reconstruct
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "userInput": "想了解一下正念冥想是什么",
+  "emotionType": "neutral",
+  "emotionScore": 0.5
+}
+
+### 2.5 【抑郁风险】意图重构测试 [VISUAL]
+### 输入：我不想活了，觉得活着没有意思
+POST http://localhost:8080/intent/reconstruct
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "userInput": "我不想活了，觉得活着没有意思",
+  "emotionType": "depression",
+  "emotionScore": 0.15
+}
+
+
+### ================================================
+### Step 3: 角色确定流程测试
+### ================================================
+
+### 3.1 根据意图和情绪确定角色 [VISUAL]
+### 场景：用户表达自我价值怀疑 → 应触发 Socratic 角色
+POST http://localhost:8080/intent/determineRole
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "intent": "value_clarification",
+  "emotionType": "negative",
+  "emotionScore": 0.35,
+  "prsScore": 0.5
+}
+
+### 3.2 危机模式角色确定 [VISUAL]
+### 场景：高抑郁风险 → 应触发 crisis_mode
+POST http://localhost:8080/intent/determineRole
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "intent": "existential_crisis",
+  "emotionType": "depression",
+  "emotionScore": 0.15,
+  "prsScore": 0.25
+}
+
+### 3.3 支持者角色确定 [VISUAL]
+### 场景：低唤醒度消极情绪 → 应触发 supportive
+POST http://localhost:8080/intent/determineRole
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "intent": "emotional_expression",
+  "emotionType": "sad",
+  "emotionScore": 0.4,
+  "prsScore": 0.6
+}
+
+
+### ================================================
+### Step 4: 完整流式对话（情绪分析集成测试）
+### ================================================
+
+### 4.1 【正常对话】流式对话 - 情绪低落场景
+### sessionId 替换为实际值（从 Step 1.1 获取）
+### SSE 事件流：chunk（文本片段） → done（完成）
+###
+### curl 命令（推荐在终端运行）：
+### curl -N -H "Authorization: Bearer {{token}}" \
+###   "http://localhost:8080/chat/stream?sessionId=1&content=我最近总是心情低落，对什么都没兴趣&modelCode=deepseek"
+
+POST http://localhost:8080/chat/session/create
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "情绪低落对话测试"
+}
+
+### 4.2 【焦虑场景】流式对话
+### curl -N -H "Authorization: Bearer {{token}}" \
+###   "http://localhost:8080/chat/stream?sessionId=1&content=我最近总是担心很多事情，容易紧张&modelCode=deepseek"
+
+### 4.3 【积极情绪】流式对话
+### curl -N -H "Authorization: Bearer {{token}}" \
+###   "http://localhost:8080/chat/stream?sessionId=1&content=今天天气很好，我心情也很棒&modelCode=deepseek"
+
+
+### ================================================
+### Step 5: 情绪历史与趋势（可视化数据查询）
+### ================================================
+
+### 5.1 获取会话情绪历史 [VISUAL - 情绪曲线数据]
+### sessionId 替换为实际值
+### 返回字段：emotionType, emotionScore, valence, arousal, prsScore, keywords, analysisTime
+GET http://localhost:8080/emotion/session/1
+Authorization: Bearer {{token}}
+
+### 5.2 获取情绪变化趋势（近7天）[VISUAL - 折线图数据]
+### 返回每日平均情绪得分，用于绘制情绪趋势图
+GET http://localhost:8080/emotion/trend?days=7
+Authorization: Bearer {{token}}
+
+### 5.3 获取情绪变化趋势（近30天）
+GET http://localhost:8080/emotion/trend?days=30
+Authorization: Bearer {{token}}
+
+### 5.4 获取会话最新情绪状态 [VISUAL - 当前情绪快照]
+### sessionId 替换为实际值
+GET http://localhost:8080/emotion/latest/1
+Authorization: Bearer {{token}}
+
+
+### ================================================
+### Step 6: 基于情绪的资源推荐（可视化推荐结果）
+### ================================================
+
+### 6.1 【抑郁情绪】资源推荐 [VISUAL - 推荐列表]
+GET http://localhost:8080/resource/recommend?emotionType=depression&emotionScore=0.3
+Authorization: Bearer {{token}}
+
+### 6.2 【焦虑情绪】资源推荐 [VISUAL]
+GET http://localhost:8080/resource/recommend?emotionType=anxiety&emotionScore=0.35
+Authorization: Bearer {{token}}
+
+### 6.3 【积极情绪】资源推荐 [VISUAL]
+GET http://localhost:8080/resource/recommend?emotionType=positive&emotionScore=0.8
+Authorization: Bearer {{token}}
+
+### 6.4 【危机预警】资源推荐 [VISUAL - 紧急热线]
+GET http://localhost:8080/resource/recommend?emotionType=crisis&emotionScore=0.1
+Authorization: Bearer {{token}}
+
+### 6.5 获取全部可用资源 [VISUAL - 分类展示]
+GET http://localhost:8080/resource/all
+Authorization: Bearer {{token}}
+
+### 6.6 获取资源详情 [VISUAL]
+### id 替换为实际资源 ID
+GET http://localhost:8080/resource/detail/1
+Authorization: Bearer {{token}}
+
+### 6.7 获取我的推荐记录 [VISUAL - 推荐历史]
+GET http://localhost:8080/resource/my/recommendations
+Authorization: Bearer {{token}}
+
+
+### ================================================
+### Step 7: 认知投票测试（情绪触发）
+### ================================================
+
+### 7.1 检查是否应触发认知投票 [VISUAL]
+### 情绪低于阈值时应触发投票，记录用户认知偏差
+GET http://localhost:8080/voting/shouldTrigger?emotionType=depression&emotionScore=0.35
+Authorization: Bearer {{token}}
+
+### 7.2 获取下一个投票问题 [VISUAL]
+### 根据情绪类型获取对应的认知行为疗法投票问题
+GET http://localhost:8080/voting/next?emotionType=depression&recentType=
+Authorization: Bearer {{token}}
+
+
+### ================================================
+### Step 8: 危机预警测试
+### ================================================
+
+### 8.1 获取我的危机预警记录 [VISUAL]
+GET http://localhost:8080/crisis/user/alerts
+Authorization: Bearer {{token}}
+
+
+### ================================================
+### Step 9: 全流程端到端测试（组合调用）
+### ================================================
+
+### 这是一个完整的情绪分析流程，按顺序执行：
+###   1. 发送消息（含情绪内容）
+###   2. 查询最新情绪状态
+###   3. 获取意图重构结果
+###   4. 确定治疗角色
+###   5. 获取情绪资源推荐
+###   6. 检查认知投票触发
+###   7. 查询情绪趋势
+
+### 【端到端测试】完整情绪分析流程演示
+### 推荐在终端用 test_emotion_viz.sh 脚本运行完整流程

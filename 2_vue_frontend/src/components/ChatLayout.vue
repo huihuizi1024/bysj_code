@@ -119,7 +119,6 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import {
   DArrowLeft, DArrowRight, Edit, ChatLineSquare,
   WarningFilled, Close, Promotion
@@ -150,7 +149,6 @@ const emit = defineEmits([
   'crisis-detected', 'open-crisis', 'close-crisis'
 ])
 
-const router = useRouter()
 const userStore = useUserStore()
 const appStore = useAppStore()
 

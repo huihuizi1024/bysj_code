@@ -26,7 +26,16 @@ public class EmotionRecord {
     
     // 情绪得分：0.0（非常负面）~ 1.0（非常积极）
     private Double emotionScore;
-    
+
+    // 情感价态 -1.0（极度消极）~ 1.0（极度积极）
+    private Double valence;
+
+    // 唤醒度 0.0（极度平静）~ 1.0（极度激动）
+    private Double arousal;
+
+    // 心理准备度得分（PRS）0.0~1.0
+    private Double prsScore;
+
     // 识别出的情绪关键词
     private String keywords;
     

@@ -6,6 +6,7 @@ import com.example.ai_app_java.entity.SupportiveResource;
 import com.example.ai_app_java.entity.ResourceRecommendation;
 import com.example.ai_app_java.mapper.ResourceRecommendationMapper;
 import com.example.ai_app_java.mapper.SupportiveResourceMapper;
+import com.example.ai_app_java.mapper.UserMapper;
 import com.example.ai_app_java.service.ResourceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,8 +21,17 @@ public class ResourceServiceImpl implements ResourceService {
     private SupportiveResourceMapper supportiveResourceMapper;
     @Autowired
     private ResourceRecommendationMapper resourceRecommendationMapper;
+    @Autowired
+    private UserMapper userMapper;
     //AI回复中最多嵌入3个资源
     private static final int MAX_RESOURCE_IN_CONTEXT = 3;
+
+    //根据用户ID查询用户名（联表查询用）
+    private String getUsernameById(Long userId) {
+        if (userId == null) return "未知用户";
+        com.example.ai_app_java.entity.User user = userMapper.selectById(userId);
+        return user != null ? user.getUsername() : "未知用户";
+    }
 
 //=========================用户接口实现======================
 
@@ -35,8 +45,9 @@ public class ResourceServiceImpl implements ResourceService {
         .or()
         .eq("trigger_emotion",emotionType)
         )
-        .ge("trigger_score_min",emotionScore != null ? emotionScore : 0.0)
-        .le("trigger_score_max",emotionScore != null ? emotionScore : 1.0)
+        // 修复：trigger_score_min 表示"情绪得分 ≥ 此值时触发"（数值越大情绪越负面）
+        // 因此正确条件是 score >= trigger_score_min → 等价于 trigger_score_min <= score
+        .le("trigger_score_min", emotionScore != null ? emotionScore : 0.0)
         .orderByAsc("priority");
        return supportiveResourceMapper.selectList(wrapper);
     }
@@ -123,7 +134,11 @@ public class ResourceServiceImpl implements ResourceService {
             QueryWrapper<ResourceRecommendation> wrapper = new QueryWrapper<>();
             wrapper.eq("user_id",userId);
             wrapper.orderByDesc("recommended_at");
-            return resourceRecommendationMapper.selectList(wrapper);
+            List<ResourceRecommendation> records = resourceRecommendationMapper.selectList(wrapper);
+            for (ResourceRecommendation r : records) {
+                r.setUsername(getUsernameById(r.getUserId()));
+            }
+            return records;
         }
         
         //=================管理员接口实现======================
@@ -195,7 +210,11 @@ public class ResourceServiceImpl implements ResourceService {
                     wrapper.eq("emotion_score",emotionScore);
                 }
                 wrapper.orderByDesc("recommended_at");
-                return resourceRecommendationMapper.selectList(wrapper);
+                List<ResourceRecommendation> records = resourceRecommendationMapper.selectList(wrapper);
+                for (ResourceRecommendation r : records) {
+                    r.setUsername(getUsernameById(r.getUserId()));
+                }
+                return records;
                 }
         
         //管理员启用/禁用资源

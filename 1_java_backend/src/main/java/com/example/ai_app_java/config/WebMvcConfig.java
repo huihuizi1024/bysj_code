@@ -29,13 +29,19 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addPathPatterns("/crisis/**")
                 .addPathPatterns("/emotion/**")
                 .addPathPatterns("/resource/**")
+                .addPathPatterns("/resource-repo/**")
                 .addPathPatterns("/model/**")
+                .addPathPatterns("/checkin/**")
+                .addPathPatterns("/voting/**")
+                .addPathPatterns("/evaluation/**")
+                .addPathPatterns("/user-profile/**")
                 .excludePathPatterns("/user/login", "/user/register");
 
         //角色权限拦截器
         registry.addInterceptor(roleInterceptor)
                 .addPathPatterns("/crisis/**")
-                .addPathPatterns("/resource/admin/**");
+                .addPathPatterns("/resource/admin/**")
+                .addPathPatterns("/resource-repo/admin/**");
     }
     /**
      * 2. 配置全局跨域（解决浏览器安全拦截）

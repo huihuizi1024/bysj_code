@@ -41,6 +41,19 @@ public interface ResourceRepositoryService {
     String buildDynamicStrategy(String emotionType, Double emotionScore, String emotionKeywords);
 
     /**
+     * 多维度策略构建（扩展版）：情绪 + 得分 + 关键词 + 临床意图 + 干预深度 + AI角色
+     * @param emotionType  情绪类型
+     * @param emotionScore 情绪得分
+     * @param emotionKeywords 情绪关键词
+     * @param clinicalIntent 临床意图代码
+     * @param interventionDepth 干预深度
+     * @param aiRole AI角色
+     * @return 策略文本
+     */
+    String buildDynamicStrategy(String emotionType, Double emotionScore, String emotionKeywords,
+                               String clinicalIntent, String interventionDepth, String aiRole);
+
+    /**
      * 获取指定情绪类型对应的所有已启用资源库代码
      * @param emotionType 情绪类型
      * @return 代码列表

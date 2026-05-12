@@ -23,7 +23,7 @@ Desktop.ini
 *.tmp
 *.bak
 *.swp
-
+./docs
 
 ### ========================================== ###
 ###       1. Java 后端 (1_java_backend)        ###
@@ -38,6 +38,8 @@ Desktop.ini
 #敏感配置文件（密钥/API Key/数据库密码）
 1_java_backend/secrets.properties
 
+# Maven Wrapper（每次运行自动生成）
+1_java_backend/.mvn/
 
 # 打包文件 (体积较大，不需要版本控制)
 *.jar
@@ -77,6 +79,8 @@ pnpm-debug.log*
 ###      3. AI 引擎 (3_ai_engine / Python)     ###
 ### ========================================== ###
 
+# Python 第三方库打包目录（不应纳入版本控制）
+pylibs/
 # Python 虚拟环境及编译缓存
 **/venv/
 **/.venv/

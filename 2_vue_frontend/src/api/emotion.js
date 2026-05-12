@@ -14,3 +14,8 @@ export function getEmotionTrend(days = 7) {
 export function getLatestEmotion(sessionId) {
   return request.get(`/emotion/latest/${sessionId}`)
 }
+
+// 获取对话摘要分析
+export function getConversationSummary(sessionId) {
+  return request.get(`/emotion/summary/${sessionId}`)
+}

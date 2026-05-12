@@ -19,12 +19,22 @@ public class SupportiveResource {
     private Long id;
     //资源大类： crisis/counseling/selfhelp/mindfulness/tips
     private String category;
+    //正念小类： breathe/meditate/visual/body
+    private String subCategory;
     //资源小类： hotline/center/exercise/tips/article
     private String resourceType;
-    //资源标题  
+    //所属资源库代码： crisis/mindfulness/selfhelp/counseling/tips
+    private String repositoryCode;
+    //资源标题
     private String title;
     //资源内容/详情
     private String content;
+    //练习时长（分钟），仅正念练习使用
+    private Integer durationMinutes;
+    //难度： entry/advanced
+    private String difficultyLevel;
+    //前端FontAwesome图标类名
+    private String iconClass;
     //推荐触发的情绪类型：depression/anxiety/anger/selfharm/suicide/violence/hopelessness/other
    @TableField("trigger_emotion")
     private String triggerEmotion;

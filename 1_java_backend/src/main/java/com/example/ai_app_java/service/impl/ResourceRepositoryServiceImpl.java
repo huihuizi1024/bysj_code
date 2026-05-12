@@ -91,42 +91,58 @@ public class ResourceRepositoryServiceImpl implements ResourceRepositoryService 
 
     @Override
     public String buildDynamicStrategy(String emotionType, Double emotionScore, String emotionKeywords) {
+        return buildDynamicStrategy(emotionType, emotionScore, emotionKeywords, null, null, null);
+    }
+
+    @Override
+    public String buildDynamicStrategy(String emotionType, Double emotionScore, String emotionKeywords,
+                                      String clinicalIntent, String interventionDepth, String aiRole) {
         List<ResourceRepository> repos = selectRepositories(emotionType, emotionScore);
         if (repos == null || repos.isEmpty()) {
             return "";
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("\n\n【本次对话资源策略】\n");
-        sb.append("用户当前情绪状态：情绪类型=").append(emotionType)
-                .append("，情绪得分=").append(emotionScore)
-                .append("，关键词=").append(emotionKeywords).append("\n");
-        sb.append("请根据上述情绪分析，从以下资源库和练习中，自主判断并选择最合适的 1~2 个，在回复中自然融入自助技巧或引导性练习建议：\n\n");
+        sb.append("\n\n【参考信息】\n");
+        sb.append("当前用户情绪：").append(emotionType != null ? emotionType : "unknown")
+                .append("（得分 ").append(emotionScore != null ? String.format("%.2f", emotionScore) : "N/A").append("）")
+                .append("，关键词：").append(emotionKeywords != null ? emotionKeywords : "无").append("\n");
+
+        // 意图上下文
+        if (clinicalIntent != null && !clinicalIntent.isBlank()) {
+            sb.append("临床意图：").append(clinicalIntent).append("\n");
+        }
+        // 干预深度
+        if (interventionDepth != null && !interventionDepth.isBlank()) {
+            sb.append("干预深度：").append(interventionDepth).append("\n");
+        }
+        // AI角色
+        if (aiRole != null && !aiRole.isBlank()) {
+            sb.append("AI角色模式：").append(aiRole).append("\n");
+        }
+        sb.append("\n");
+
+        // 根据干预深度调整内容复杂度
+        if (interventionDepth != null) {
+            String complexityModifier = switch (interventionDepth) {
+                case "scaffolding" -> "【提示】用户当前心理准备度较低，请提供步骤式指导，语言简洁明了，避免长段落。";
+                case "reflective" -> "【提示】用户当前心理准备度较高，请使用开放性问题框架，鼓励自主探索。";
+                default -> "【提示】用户当前状态稳定，请平衡共情与引导，提供适度的解释。";
+            };
+            sb.append(complexityModifier).append("\n");
+        }
 
         for (ResourceRepository repo : repos) {
-            sb.append("【资源库：").append(repo.getName()).append("】\n");
-            sb.append(repo.getStrategy()).append("\n");
+            String strategy = repo.getStrategy();
+            if (strategy == null || strategy.isBlank()) continue;
+            sb.append(strategy).append("\n");
 
             List<SupportiveResource> resources = getResourcesByRepository(repo.getCode(), emotionType, emotionScore);
             if (!resources.isEmpty()) {
-                sb.append("—— 可选练习：\n");
-                for (int i = 0; i < Math.min(resources.size(), MAX_RESOURCES_PER_REPO); i++) {
-                    SupportiveResource r = resources.get(i);
-                    sb.append("  ").append(i + 1).append(". ").append(r.getTitle())
-                            .append("：").append(r.getContent()).append("\n");
-                }
+                SupportiveResource top = resources.get(0);
+                sb.append("参考练习：").append(top.getTitle()).append("。\n");
             }
-            sb.append("\n");
         }
-
-        sb.append("【使用规则】\n");
-        sb.append("1. 最终选择哪些资源，由你根据对话语境和用户情绪状态自行决定，不要机械罗列；\n");
-        sb.append("2. 危机热线类资源（如用户情绪极度负面或有自伤倾向）必须优先插入回复末尾，用【】强调；\n");
-        sb.append("3. 非危机资源请自然地融入对话引导中，先确认用户状态再温和引入，避免给用户压力；\n");
-        sb.append("4. 优先推荐自助练习类资源，辅以阅读类资源；\n");
-        sb.append("5. 不要一次性推荐超过 3 个资源，保持简洁聚焦；\n");
-        sb.append("6. 若情绪得分为 0.3 以下（极度负面），以共情倾听为主，技巧引导为辅。\n");
-
         return sb.toString();
     }
 

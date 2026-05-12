@@ -3,6 +3,10 @@ import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import Home from '../views/Home.vue'
 import Admin from '../views/Admin.vue'
+import Profile from '../views/Profile.vue'
+import EvaluationDashboard from '../views/EvaluationDashboard.vue'
+
+import { ElMessage } from 'element-plus'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -28,10 +32,22 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/profile',
+      name: 'profile',
+      component: Profile,
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/admin',
       name: 'admin',
       component: Admin,
       meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/evaluation',
+      name: 'evaluation',
+      component: EvaluationDashboard,
+      meta: { requiresAuth: true }
     }
   ]
 })
@@ -57,8 +73,5 @@ router.beforeEach((to, from) => {
     return { name: 'home' }
   }
 })
-
-// 临时导入 ElMessage 用于路由守卫
-import { ElMessage } from 'element-plus'
 
 export default router

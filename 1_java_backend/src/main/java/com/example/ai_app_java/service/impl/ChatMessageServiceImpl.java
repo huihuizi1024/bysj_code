@@ -17,16 +17,27 @@ public class ChatMessageServiceImpl
         implements ChatMessageService {
     @Override
     public List<ChatMessage> getHistoryBySessionId(Long sessionId){
-        //逻辑：查询该会话的记录，按时间倒序排，取最近10条
+        //逻辑：查询该会话的记录，按时间倒序排，取最近20条
         QueryWrapper<ChatMessage> wrapper = new QueryWrapper<>();
         wrapper.eq("session_id",sessionId)//只查当前选中的这个会话框的记录
-                .orderByAsc("create_time");//按时间正序排列，旧的在上面，新的在下面
+                .orderByDesc("create_time")//按时间倒序，最新的在前
+                .last("LIMIT 20");//只取最近20条，防止token溢出
         return this.list(wrapper);
     }
 
-//保存消息并返回自增主键ID
-public Long saveAndGetId(ChatMessage message){
-    this.save(message);//MyBatis-Plus提供的保存方法，保存后message对象会自动回填生成的id
-    return message.getId();//返回自增主键ID
-}
+    @Override
+    public List<ChatMessage> getHistoryAsc(Long sessionId){
+        //逻辑：查询该会话的全部记录，按时间正序排列（旧→新），给前端展示用
+        QueryWrapper<ChatMessage> wrapper = new QueryWrapper<>();
+        wrapper.eq("session_id",sessionId)
+                .orderByAsc("create_time");
+        return this.list(wrapper);
+    }
+
+    //保存消息并返回自增主键ID
+    @Override
+    public Long saveAndGetId(ChatMessage message){
+        this.save(message); // MyBatis-Plus provided save method, ID auto-filled after save
+        return message.getId();
+    }
 }

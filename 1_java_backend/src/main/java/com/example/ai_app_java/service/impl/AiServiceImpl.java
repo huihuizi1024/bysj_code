@@ -3,7 +3,20 @@ package com.example.ai_app_java.service.impl;
 import com.example.ai_app_java.entity.AiModelConfig;
 import com.example.ai_app_java.entity.ChatMessage;
 import com.example.ai_app_java.entity.ChatSession;
-import com.example.ai_app_java.service.*;
+import com.example.ai_app_java.entity.EmotionRecord;
+import com.example.ai_app_java.service.AiService;
+import com.example.ai_app_java.service.ChatMessageService;
+import com.example.ai_app_java.service.ChatSessionService;
+import com.example.ai_app_java.service.EmotionAnalysisService;
+import com.example.ai_app_java.service.CrisisDetectionService;
+import com.example.ai_app_java.service.ResourceRepositoryService;
+import com.example.ai_app_java.service.AiModelConfigService;
+import com.example.ai_app_java.service.UserModelPreferenceService;
+import com.example.ai_app_java.service.PsychologicalReadinessService;
+import com.example.ai_app_java.service.ReflectorService;
+import com.example.ai_app_java.service.IntentReconstructService;
+import com.example.ai_app_java.service.RoleSchedulerService;
+import com.example.ai_app_java.service.TherapyEvaluationService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +34,7 @@ import java.net.http.HttpResponse;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,328 +44,412 @@ public class AiServiceImpl implements AiService {
 
     @Autowired
     private RestTemplate restTemplate;
-    //为了在流式对话中保存聊天记录
     @Autowired
     private ChatMessageService chatMessageService;
-    //为了自动总结标题并保存
     @Autowired
     private ChatSessionService chatSessionService;
-    //为了分析用户情绪和检测危机
     @Autowired
     private EmotionAnalysisService emotionAnalysisService;
-    //为了检测危机
     @Autowired
     private CrisisDetectionService crisisDetectionService;
-    //=======================================
-    //从secrets.properties读取DeepSeek的配置
-    //=======================================
+    @Autowired
+    private ResourceRepositoryService resourceRepositoryService;
     @Autowired
     private AiModelConfigService aiModelConfigService;
-    //为了保存用户模型偏好
     @Autowired
     private UserModelPreferenceService userModelPreferenceService;
-    //=======================================
-    //从Environment中读取配置
-    //=======================================
+    @Autowired
+    private PsychologicalReadinessService psychologicalReadinessService;
+    @Autowired
+    private ReflectorService reflectorService;
+    @Autowired
+    private IntentReconstructService intentReconstructService;
+    @Autowired
+    private RoleSchedulerService roleSchedulerService;
+    @Autowired
+    private TherapyEvaluationService therapyEvaluationService;
     @Autowired
     private org.springframework.core.env.Environment environment;
-    // 内部类：封装单个模型的API配置
+
+    /**
+     * 系统提示词基础部分（不含资源上下文）
+     */
+    private static final String SYSTEM_PROMPT_BASE = """
+        你是一位经过专业心理学训练、充满同理心的 AI 心理支持倾听者。
+
+        【核心交互原则】
+        1. 倾听与共情优先：不要急于给出建议。先复述用户的感受，表达完全的接纳和理解（如："我能感觉到你现在有多么辛苦"）。
+        2. 启发式引导：在建立信任后，温和地运用认知行为疗法（CBT）的苏格拉底式提问，引导用户觉察自己的负面自动思维，探索其他视角。
+        3. 身份边界：明确自己是 AI，绝对不虚构人类经历，不给出处方药建议，不替代真实的医疗诊断。
+
+        【危机干预（最高优先级，凌驾于所有规则之上）】
+        一旦用户的输入中包含"想死、活不下去、自杀、绝望、撑不住了、割腕、跳楼"等意图伤害自己的极端情绪表达，你必须立刻停止所有常规咨询逻辑，并严格且一字不差地输出以下格式的回复：
+
+        [CRISIS_ALERT]
+        我感受到了你现在承受着极大的痛苦，甚至觉得已经走投无路了。但请你一定要保护好自己，先停下来深呼吸。这世界还有人愿意倾听你、帮助你。
+        请立刻拨打全国希望24小时心理危机干预热线：400-161-9995。那里有专业的老师，他们24小时都在，随时准备陪伴你度过这个难关。
+        """;
+
     private static class ModelApiConfig {
         String url;
         String apiKey;
         String modelName;
-
         ModelApiConfig(String url, String apiKey, String modelName) {
             this.url = url;
             this.apiKey = apiKey;
             this.modelName = modelName;
         }
     }
-    /**
-     * 根据模型代码，从数据库配置+secrets.properties动态获取API配置
-     */
+
     private ModelApiConfig getModelConfig(String modelCode) {
         AiModelConfig config = aiModelConfigService.getByCode(modelCode);
         if (config == null) {
             throw new RuntimeException("未找到模型配置: " + modelCode);
         }
-        String apiKey = getSecretKey(config.getApiKeyAlias());
+        String apiKey = environment.getProperty(config.getApiKeyAlias(), "");
         return new ModelApiConfig(config.getApiUrl(), apiKey, config.getModelName());
     }
 
-    /**
-     * 从secrets.properties中读取对应的API Key
-     * 使用Spring的Environment来动态读取
-     */
-    private String getSecretKey(String keyAlias) {
-        if (keyAlias == null || keyAlias.isBlank()) {
-            return "";
-        }
-        return environment.getProperty(keyAlias, "");
-    }
-    // ==========================================
-    // 1. 同步调用接口
-    // ==========================================
     @Override
-    public String getAiResponse(Long userId, String content,String modelCode){
-        System.out.println("【AI服务】 准备调用大模型，用户ID："+userId+
-                "， 内容"+content);
-
-        try{
-            //1、设置请求头(相当于将apikey给亮出来
+    public String getAiResponse(Long userId, String content, String modelCode) {
+        try {
+            ModelApiConfig cfg = getModelConfig(modelCode);
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(getModelConfig(modelCode).apiKey);
-            //2、组装请求体(严格遵守DeepSeek/OpenAI的JSON格式)
+            headers.setBearerAuth(cfg.apiKey);
+
             Map<String, Object> requestBody = new HashMap<>();
-            //未来动态切换伏笔
-            //根据模型代码获取模型名称
-            requestBody.put("model",getModelConfig(modelCode).modelName);
-            //组装对话消息列表
+            requestBody.put("model", cfg.modelName);
             List<Map<String, String>> messages = new ArrayList<>();
-            //系统提示词Prompt
-            messages.add(Map.of(
-                    "role","system",
-                    "content","你是一个温柔、专业、富有同理心的心理健康助手。请用简短温暖的中文回复用户，像知心朋友一样沟通。"
-            ));
-            //用户当前发送的消息
-            messages.add(Map.of(
-                    "role","user",
-                    "content",content
-            ));
-            requestBody.put("messages",messages);
+            messages.add(Map.of("role", "system",
+                "content", "你是一个温柔、专业、富有同理心的心理健康助手。请用简短温暖的中文回复用户，像知心朋友一样沟通。"));
+            messages.add(Map.of("role", "user", "content", content));
+            requestBody.put("messages", messages);
 
-            //将头和体打包在一起
-            HttpEntity<Map<String,Object>> entity = new HttpEntity<>(requestBody,headers);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(cfg.url, entity, String.class);
 
-            //3、发送HTTP POST请求给AI服务器
-            System.out.println("【AI服务】正在等待"+getModelConfig(modelCode).modelName+"回复...");
-            ResponseEntity<String> response = restTemplate.postForEntity(getModelConfig(modelCode).url, entity, String.class);
-
-            //4、拆开DeepSeek的回信(JSON格式)
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(response.getBody());
-
-            //DeepSeek的回复藏在choices ->[0] ->message ->content里
             String aiReply = root.path("choices").get(0).path("message").path("content").asText();
-            System.out.println("【AI】服务"+getModelConfig(modelCode).modelName+"回复成功！");
             return aiReply;
-        }catch (Exception e){
-            System.out.println("【AI服务】调用大模型失败"+e.getMessage());
-            e.printStackTrace();
-            //友好兜底回复，防止前端页面崩溃
+        } catch (Exception e) {
             return "抱歉我的大脑暂时开小差，请稍后再试。";
-
         }
     }
-    // ==========================================
-    // 2. 调用大模型的流式打字机接口
-    // ==========================================
+
     @Override
-    public SseEmitter streamChat(Long userId, Long sessionId, String content,String modelCode){
-        //1、创建流式发送器，超时时间为120s
+    public SseEmitter streamChat(Long userId, Long sessionId, String content, String modelCode) {
         SseEmitter emitter = new SseEmitter(120000L);
 
-        //2、收到消息的第一时间，将用户发送的内容存入数据库
+        // 1. 保存用户消息到数据库
         ChatMessage userMsg = new ChatMessage();
         userMsg.setSessionId(sessionId);
         userMsg.setContent(content);
         userMsg.setUserId(userId);
         userMsg.setRole("user");
         userMsg.setCreateTime(LocalDateTime.now());
-        //保存用户消息并获取消息ID
-       Long userMsgId = chatMessageService.saveAndGetId(userMsg);
-        //异步分析用户情绪（不阻塞AI回复）
+        Long userMsgId = chatMessageService.saveAndGetId(userMsg);
+
+        // 2. 同步执行情绪分析（必须等结果，用于构建资源上下文）
+        EmotionRecord emotionRecord = null;
+        String emotionType = "neutral";
+        double emotionScore = 0.5;
+        String emotionKeywords = "无";
+        try {
+            emotionRecord = emotionAnalysisService.analyzeEmotion(
+                userId, sessionId, userMsgId, content, modelCode);
+            if (emotionRecord != null) {
+                emotionType = emotionRecord.getEmotionType() != null
+                    ? emotionRecord.getEmotionType() : "neutral";
+                emotionScore = emotionRecord.getEmotionScore() != null
+                    ? emotionRecord.getEmotionScore() : 0.5;
+                emotionKeywords = emotionRecord.getKeywords() != null
+                    ? emotionRecord.getKeywords() : "无";
+            }
+        } catch (Exception e) {
+            System.out.println("【AI服务】情绪分析失败，使用默认值：" + e.getMessage());
+        }
+
+        // 3. 异步检测危机（不阻塞 AI 回复流程）
         new Thread(() -> {
-            emotionAnalysisService.analyzeEmotion(userId, sessionId, userMsgId, content,modelCode);
-            crisisDetectionService.checkCrisis(userId, sessionId, userMsgId, content);
+            try {
+                crisisDetectionService.checkCrisis(userId, sessionId, userMsgId, content);
+            } catch (Exception e) {
+                System.out.println("【AI服务】危机检测失败：" + e.getMessage());
+            }
         }).start();
-        //3、准备发给大模型的JSON数据
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model",getModelConfig(modelCode).modelName);
-        requestBody.put("stream",true);//告知大模型用流式输出回复
 
+        // 4. 计算心理准备度得分（PRS）并获取干预深度
+        Double prsScore = null;
+        String interventionDepth = "supportive";
+        if (emotionRecord != null) {
+            try {
+                var prsResult = psychologicalReadinessService.calculatePRS(
+                    emotionRecord, userId, sessionId, userMsgId);
+                prsScore = prsResult.getTotalScore();
+                interventionDepth = prsResult.getInterventionDepth() != null
+                    ? prsResult.getInterventionDepth() : "supportive";
+            } catch (Exception e) {
+                System.out.println("【AI服务】PRS计算失败：" + e.getMessage());
+            }
+        }
+
+        // 5. 意图重构（临床意图分类 + 疗法模块选择）
+        String clinicalIntent = null;
+        String therapyModule = null;
+        String latentNeed = null;
+        try {
+            var intentResult = intentReconstructService.reconstruct(content, emotionType, emotionScore);
+            clinicalIntent = intentResult.clinicalIntent();
+            therapyModule = intentResult.therapyModule();
+            latentNeed = intentResult.latentNeed();
+        } catch (Exception e) {
+            System.out.println("【AI服务】意图重构失败：" + e.getMessage());
+        }
+
+        // 6. 治疗角色调度（领导权动态平衡）
+        String aiRole = null;
+        String rolePromptFragment = null;
+        try {
+            aiRole = roleSchedulerService.determineRole(userId, sessionId,
+                clinicalIntent, emotionType, emotionScore, prsScore);
+            rolePromptFragment = roleSchedulerService.getRolePromptFragment(aiRole);
+        } catch (Exception e) {
+            System.out.println("【AI服务】角色调度失败：" + e.getMessage());
+        }
+
+        // 将需要在 lambda 中使用的变量保存为 final
+        final String finalContent = content;
+        final Long finalUserId = userId;
+        final Long finalSessionId = sessionId;
+        final Long finalUserMsgId = userMsgId;
+        final String finalModelCode = modelCode;
+        final String finalEmotionType = emotionType;
+        final String finalClinicalIntent = clinicalIntent != null ? clinicalIntent : "";
+        final String finalTherapyModule = therapyModule != null ? therapyModule : "";
+        final String finalInterventionDepth = interventionDepth;
+        final String finalAiRole = aiRole != null ? aiRole : "";
+
+        // 7. 构建PRS上下文（干预深度配置）
+        String prsContext = psychologicalReadinessService.buildPrsContext(prsScore, interventionDepth);
+
+        // 8. 构建意图上下文
+        String intentContext = buildIntentContext(clinicalIntent, therapyModule, latentNeed, aiRole, rolePromptFragment);
+
+        // 9. 构建资源上下文（多维度匹配：情绪+得分+意图）
+        String resourceContext = resourceRepositoryService.buildDynamicStrategy(
+            emotionType, emotionScore, emotionKeywords, clinicalIntent, interventionDepth, aiRole);
+
+        // 10. 构建完整的 system prompt（基础 + PRS上下文 + 意图上下文 + 资源上下文）
+        String fullSystemPrompt = SYSTEM_PROMPT_BASE + prsContext + intentContext + resourceContext;
+
+        // 8. 构建消息列表（系统提示词 + 历史上下文 + 当前消息）
         List<Map<String, String>> messages = new ArrayList<>();
-        // 🔥 使用 Java 21 的文本块 (Text Block) 来优雅地写入超长 Prompt
-        String systemPrompt = """
-        你是一位经过专业心理学训练、充满同理心的 AI 心理支持倾听者。
+        messages.add(Map.of("role", "system", "content", fullSystemPrompt));
 
-        【核心交互原则】
-        1. 倾听与共情优先：不要急于给出建议。先复述用户的感受，表达完全的接纳和理解（如：“我能感觉到你现在有多么辛苦”）。
-        2. 启发式引导：在建立信任后，温和地运用认知行为疗法（CBT）的苏格拉底式提问，引导用户觉察自己的负面自动思维，探索其他视角。
-        3. 身份边界：明确自己是 AI，绝对不虚构人类经历，不给出处方药建议，不替代真实的医疗诊断。
+        // 加载历史消息（最多保留最近20条，防止token溢出）
+        // 注意：getHistoryBySessionId 已包含当前用户消息，不要重复添加
+        // 注意：getHistoryBySessionId 返回按时间倒序（最新的在前），需要反转保持 oldest→newest 顺序
+        List<ChatMessage> historyMessages = chatMessageService.getHistoryBySessionId(sessionId);
+        Collections.reverse(historyMessages); // 反转为 oldest→newest
+        for (ChatMessage msg : historyMessages) {
+            String role = "user".equals(msg.getRole()) ? "user" : "assistant";
+            messages.add(Map.of("role", role, "content", msg.getContent()));
+        }
 
-        【危机干预（最高优先级，凌驾于所有规则之上）】
-        一旦用户的输入中包含“想死、活不下去、自杀、绝望、撑不住了、割腕、跳楼”等意图伤害自己的极端情绪表达，你必须立刻停止所有常规咨询逻辑，并严格且一字不差地输出以下格式的回复：
+        // 9. 新开线程执行 HTTP 流式请求
+        List<String> responseChunks = Collections.synchronizedList(new ArrayList<>());
+        new Thread(() -> {
+            try {
+                ModelApiConfig cfg = getModelConfig(modelCode);
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("model", cfg.modelName);
+                requestBody.put("stream", true);
+                requestBody.put("messages", messages);
 
-        [CRISIS_ALERT]
-        我感受到了你现在承受着极大的痛苦，甚至觉得已经走投无路了。但请你一定要保护好自己，先停下来深呼吸。这世界还有人愿意倾听你、帮助你。
-        请立刻拨打全国希望24小时心理危机干预热线：400-161-9995。那里有专业的老师，他们24小时都在，随时准备陪伴你度过这个难关。
-        """;
-        messages.add(Map.of(
-                "role","system",
-                "content",systemPrompt
-        ));
-        messages.add(Map.of(
-                "role","user",
-                "content",content
-        ));
-        requestBody.put("messages",messages);
-        //4、新开线程执行HTTP请求，绝对不阻塞Spring Boot主线程
-        new Thread(() ->{
-            try{
                 ObjectMapper mapper = new ObjectMapper();
                 String jsonPayload = mapper.writeValueAsString(requestBody);
-                //使用Java原生的HttpClient构造请求
+
                 HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(getModelConfig(modelCode).url))
-                        .header("Content-Type","application/json")
-                        .header("Authorization","Bearer "+getModelConfig(modelCode).apiKey)
+                        .uri(URI.create(cfg.url))
+                        .header("Content-Type", "application/json")
+                        .header("Authorization", "Bearer " + cfg.apiKey)
                         .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
                         .build();
 
                 HttpClient client = HttpClient.newHttpClient();
-                StringBuilder fullAiResponse = new StringBuilder();
-                //发起异步请求，按“行”读取流式数据
-                client.sendAsync(request,HttpResponse.BodyHandlers.ofLines())
-                        .thenAccept(response ->{
-                            try{
-                                response.body().forEach(line ->{
+
+                client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
+                        .thenAccept(response -> {
+                            try {
+                                response.body().forEach(line -> {
                                     try {
-                                        //过滤空行，提取以"data"开头的流式碎片
-                                        if(line != null && line.startsWith("data: ")){
+                                        if (line != null && line.startsWith("data: ")) {
                                             String data = line.substring(6).trim();
-                                            //[DONE]是OpenAI/Qwen协议中表示输出结束的标志
-                                            if(data.equals("[DONE]")){
-                                                return;//跳过本次处理，等待结束
+                                            if (data.equals("[DONE]")) {
+                                                return;
                                             }
-                                            //解析大模型返回的JSON碎片
-                                            JsonNode root = mapper.readTree(data);
-                                            JsonNode deltaNode = root.path("choices").get(0).path("delta");
-                                            if(deltaNode.has("content")){
+                                            JsonNode rootNode = mapper.readTree(data);
+                                            JsonNode deltaNode = rootNode.path("choices").get(0).path("delta");
+                                            if (deltaNode.has("content")) {
                                                 String word = deltaNode.get("content").asText();
-                                                //实时将这个字通过SSE通道推给Vue前端
-                                                emitter.send(word);
-                                                //拼接到完整的回复字符串中
-                                                fullAiResponse.append(word);
+                                                emitter.send(SseEmitter.event().name("chunk").data(word));
+                                                responseChunks.add(word);
                                             }
                                         }
-                                    }catch (Exception e){
-                                        System.out.println("解析流式碎片出错，但不中断长连接："+e.getMessage());
+                                    } catch (Exception e) {
+                                        System.out.println("解析流式碎片出错：" + e.getMessage());
                                     }
                                 });
-                                //所有数据流传输完毕后，在这里把完整的回复保存到数据库
+
+                                // 将所有分片 join 为完整字符串（线程安全）
+                                String fullAiResponse = String.join("", responseChunks);
+
+                                // 保存 AI 回复
                                 ChatMessage aiMsg = new ChatMessage();
                                 aiMsg.setSessionId(sessionId);
                                 aiMsg.setUserId(userId);
                                 aiMsg.setRole("assistant");
-                                aiMsg.setContent(fullAiResponse.toString());
+                                aiMsg.setContent(fullAiResponse);
                                 aiMsg.setCreateTime(LocalDateTime.now());
                                 chatMessageService.save(aiMsg);
-                                
-                                // ★ 新增逻辑：异步判断并生成会话标题
+
+                                // 异步生成会话标题
                                 autoSummarizeTitle(sessionId, content);
 
-                                //告诉前端：水管关了，流式传输已完成！
+                                // ---- Layer 2: Reflector 输出安全审计（不阻塞返回）----
+                                new Thread(() -> {
+                                    try {
+                                        reflectorService.audit(fullAiResponse);
+                                    } catch (Exception e) {
+                                        System.out.println("【AI服务】Reflector审计失败：" + e.getMessage());
+                                    }
+                                }).start();
+
+                                // 发送命名事件，告知前端流式响应正常结束
+                                emitter.send(SseEmitter.event().name("done").data("ok"));
                                 emitter.complete();
-                            }catch (Exception e) {
+
+                                // ---- Layer 3: MentalAlign 疗效评估（不阻塞返回）----
+                                new Thread(() -> {
+                                    try {
+                                        therapyEvaluationService.evaluateResponse(
+                                            finalContent,
+                                            fullAiResponse,
+                                            finalUserId,
+                                            finalSessionId,
+                                            finalUserMsgId + 1,
+                                            finalModelCode,
+                                            finalClinicalIntent,
+                                            finalTherapyModule,
+                                            finalInterventionDepth,
+                                            finalAiRole
+                                        );
+                                    } catch (Exception e) {
+                                        System.out.println("【AI服务】MentalAlign疗效评估失败：" + e.getMessage());
+                                    }
+                                }).start();
+                            } catch (Exception e) {
+                                try {
+                                    emitter.send(SseEmitter.event().name("done").data("error:" + e.getMessage()));
+                                } catch (Exception ignored) {}
                                 emitter.completeWithError(e);
                             }
                         })
-                        .exceptionally(ex ->{//处理HttpClient级别的网络异常
+                        .exceptionally(ex -> {
                             emitter.completeWithError(ex);
                             return null;
                         });
-            }catch (Exception e) {
+            } catch (Exception e) {
                 emitter.completeWithError(e);
             }
         }).start();
-        return  emitter;
+        return emitter;
     }
 
     /**
-     * 自动为会话生成标题（异步执行，不阻塞当前流程）
+     * 构建意图上下文文本，注入到 AI system prompt 中
+     * 包含临床意图分类、疗法模块、隐性需求、AI角色片段
      */
-    private void autoSummarizeTitle(Long sessionId, String firstUserMessage) {
-        // 1. 查询当前会话的信息
-        ChatSession session = chatSessionService.getById(sessionId);
-        if (session == null) return;
-
-        // 2. 如果标题已经是总结过的（不是默认的"新的心理探索"），就不再总结了
-        if (!"新的心理探索".equals(session.getTitle())) {
-            return;
+    private String buildIntentContext(String clinicalIntent, String therapyModule,
+                                    String latentNeed, String aiRole, String rolePromptFragment) {
+        if (clinicalIntent == null && aiRole == null) {
+            return "";
         }
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n\n【临床意图上下文】\n");
+        if (latentNeed != null && !latentNeed.isBlank()) {
+            sb.append("用户隐性需求：").append(latentNeed).append("\n");
+        }
+        if (clinicalIntent != null && !clinicalIntent.isBlank()) {
+            sb.append("临床意图：").append(clinicalIntent).append("\n");
+        }
+        if (therapyModule != null && !therapyModule.isBlank()) {
+            sb.append("疗法模块：").append(therapyModule).append("\n");
+        }
+        if (rolePromptFragment != null && !rolePromptFragment.isBlank()) {
+            sb.append("\n").append(rolePromptFragment).append("\n");
+        }
+        return sb.toString();
+    }
 
-        // 3. 异步新开一个线程去调用大模型总结标题
+    private void autoSummarizeTitle(Long sessionId, String firstUserMessage) {
         new Thread(() -> {
             try {
-                // 构建发送给大模型的系统提示词，要求它输出极简的标题
+                ChatSession session = chatSessionService.getById(sessionId);
+                if (session == null || !"新的心理探索".equals(session.getTitle())) {
+                    return;
+                }
                 String prompt = "请你根据用户输入的这段话，总结一个非常简短的对话标题（不超过8个字，不要带标点符号和引号）：\n" + firstUserMessage;
-                
-                // 复用我们写好的同步请求大模型方法
-                // 这里可以用 userId 传 0 或者 session 里面的 userId
                 String modelCode = userModelPreferenceService.getUserModelCode(session.getUserId());
-                String generatedTitle = getAiResponse(session.getUserId(), prompt,modelCode);
-                
-                // 去除可能携带的多余引号或空格
+                String generatedTitle = getAiResponse(session.getUserId(), prompt, modelCode);
                 generatedTitle = generatedTitle.replace("\"", "").replace("'", "").trim();
-                
-                // 防止 AI 回复过长，如果超过 15 个字强制截断
                 if (generatedTitle.length() > 15) {
                     generatedTitle = generatedTitle.substring(0, 15) + "...";
                 }
-
-                // 4. 更新数据库中的会话标题
                 session.setTitle(generatedTitle);
                 chatSessionService.updateById(session);
-                System.out.println("【AI服务】已成功为会话 " + sessionId + " 总结并更新标题：" + generatedTitle);
             } catch (Exception e) {
                 System.out.println("【AI服务】自动总结标题失败：" + e.getMessage());
             }
         }).start();
     }
-    //=================================================
-    // 3. 使用AI进行情绪分析
-    //============================================
+
     @Override
-    public String analyzeEmotion(String content,String modelCode) {
-        String apiUrl = getModelConfig(modelCode).url;
-        String apiKey = getModelConfig(modelCode).apiKey;
-        String apiModel = getModelConfig(modelCode).modelName;
-        try{
+    public String analyzeEmotion(String content, String modelCode) {
+        try {
+            ModelApiConfig cfg = getModelConfig(modelCode);
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(apiKey);
+            headers.setBearerAuth(cfg.apiKey);
 
-            Map<String,Object> requestBody = new HashMap<>();
-            requestBody.put("model",apiModel);
-            
-            List<Map<String,String>> messages = new ArrayList<>();
-            //系统提示此：要求AI返回结构化的JSON分析结果
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", cfg.modelName);
+            List<Map<String, String>> messages = new ArrayList<>();
             String systemPrompt = """
-           你是一个专业的情绪分析助手。请分析用户输入的文本，判断其情绪状态。
-        你必须严格按照以下JSON格式返回，不要有任何额外内容：
-        {
-            "emotionType": "情绪类型，取值为 positive/negative/neutral/anxiety/depression/anger 之一",
-            "emotionScore": 0.0到1.0之间的数值，0.0代表极度负面，1.0代表极度积极，
-            "keywords": "识别出的情绪关键词，用逗号分隔"
-        }
-            """;
-            messages.add(Map.of("role","system","content",systemPrompt));
-            messages.add(Map.of("role","user","content",content));
-            requestBody.put("messages",messages);
-            HttpEntity<Map<String,Object>> entity = new HttpEntity<>(requestBody,headers);
-            ResponseEntity<String> response = restTemplate.postForEntity(apiUrl, entity, String.class);
+                你是一个专业的情绪分析助手。请分析用户输入的文本，判断其情绪状态。
+                你必须严格按照以下JSON格式返回，不要有任何额外内容：
+                {
+                    "emotionType": "情绪类型，取值为 positive/negative/neutral/anxiety/depression/anger 之一",
+                    "emotionScore": 0.0到1.0之间的数值，0.0代表极度负面，1.0代表极度积极，
+                    "valence": -1.0到1.0之间的数值，-1.0代表极度消极/不愉快，1.0代表极度积极/愉快，
+                    "arousal": 0.0到1.0之间的数值，0.0代表极度平静/放松，1.0代表极度激动/紧张，
+                    "keywords": "识别出的情绪关键词，用逗号分隔"
+                }
+                """;
+            messages.add(Map.of("role", "system", "content", systemPrompt));
+            messages.add(Map.of("role", "user", "content", content));
+            requestBody.put("messages", messages);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(cfg.url, entity, String.class);
 
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(response.getBody());
-            String aiReply = root.path("choices").get(0).path("message").path("content").asText();
-            
-            return aiReply;
-             }catch(Exception e){
-                System.out.println("【AI服务】调用失败："+e.getMessage());
-                //兜底：返回中性情绪
-                return "{\"emotionType\":\"neutral\",\"emotionScore\":0.5,\"keywords\":\"无\"}";
-            }
+            return root.path("choices").get(0).path("message").path("content").asText();
+        } catch (Exception e) {
+            return "{\"emotionType\":\"neutral\",\"emotionScore\":0.5,\"keywords\":\"无\"}";
+        }
     }
 }
