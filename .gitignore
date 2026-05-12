@@ -111,3 +111,4 @@ pylibs/
 **/LLaMA-Factory/data/*.json
 **/PsyQA_train.json
 /.cursor
+/docs
